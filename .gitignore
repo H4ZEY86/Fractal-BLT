@@ -1,0 +1,46 @@
+# .NET Core
+[Bb]in/
+[Oo]bj/
+
+# Debug and Profiling
+*.pdb
+*.dbg
+*.mdf
+*.ldf
+
+# Mac/Linux OS Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+**/.Trash-*
+
+# Windows OS Files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+
+# Visual Studio / IDEs
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Synthetic Benchmark Data
+dummy_expert.safetensors
+*.safetensors
+
+# NativeAOT Build Artifacts
+*.ilc
+*.o
+*.obj
+*.lib
+*.a
