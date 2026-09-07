@@ -21,4 +21,4 @@ Fractal-BLT is a high-performance bare-metal inference runtime. By design, it by
 
 If you discover a memory safety escape that allows Remote Code Execution (RCE) via a standard `/v1/chat/completions` REST payload, please do NOT create a public issue. 
 
-Email the maintainers directly at `security@fractal-blt.internal` (Placeholder). We will acknowledge receipt within 48 hours.
+Email the maintainers directly at `ctddestiny@outlook.com`. We will acknowledge receipt within 48 hours.
