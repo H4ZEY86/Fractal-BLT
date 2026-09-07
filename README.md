@@ -14,12 +14,14 @@
 
 </div>
 
-## 📖 Documentation & Governance
-- **[Getting Started](docs/GETTING_STARTED.md)**: Compile and run the pipeline.
-- **[Configuration Guide](docs/CONFIGURATION.md)**: Environment variables and tuning.
-- **[API Reference](docs/API_REFERENCE.md)**: Details on the `/v1/chat/completions` SSE endpoint.
-- **[Contributing Guidelines](CONTRIBUTING.md)**: Read before submitting PRs.
-- **[Security Policy](SECURITY.md)**: Threat models and vulnerability reporting.
+## 🧭 Navigation & Guides
+
+- [**Architectural Manifest**](docs/ARCHITECTURE.md) - Deep dive into Zero-Allocation routing, unmanaged memory, and the physical pipeline.
+- [**Getting Started**](docs/GETTING_STARTED.md) - Instructions for compiling NativeAOT, downloading Safetensors, and running the web server.
+- [**Mobile Integration (iOS/Android)**](docs/MOBILE_INTEGRATION.md) - Drop-in snippets for connecting mobile apps to the Fractal-BLT backend.
+- [**API Reference**](docs/API.md) - Comprehensive documentation for the REST/SSE completion endpoints.
+- [**Configuration Guide**](docs/CONFIGURATION.md) - How to tune Ring buffers, JIT thresholds, and channel capacities.
+- [**Security & Codeowners**](SECURITY.md) - Vulnerability reporting and repository governance.
 
 ---
 
