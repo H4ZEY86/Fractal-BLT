@@ -23,16 +23,16 @@ public static class SafetensorsHeaderParser
         // Safetensors format: First 8 bytes are an unsigned 64-bit integer (little endian) specifying the header size.
         Span<byte> lengthBuffer = stackalloc byte[8];
         if (fs.Read(lengthBuffer) != 8)
-            return false;
+            throw new SafeTensorsParseException("File is too small to contain a SafeTensors length prefix.");
 
         long headerLength = BitConverter.ToInt64(lengthBuffer);
-        if (headerLength <= 0 || headerLength > 100 * 1024 * 1024) // Sanity check (max 100MB header)
-            return false;
+        if (headerLength <= 0 || headerLength > fs.Length - 8) 
+            throw new SafeTensorsParseException($"Invalid SafeTensors header length: {headerLength}. File may be corrupted or truncated.");
 
         // Allocate a buffer for the header.
         byte[] headerBytes = new byte[headerLength];
         if (fs.Read(headerBytes) != headerLength)
-            return false;
+            throw new SafeTensorsParseException("Failed to read the entire SafeTensors JSON header.");
 
         // Parse JSON using Utf8JsonReader
         var reader = new Utf8JsonReader(headerBytes);
@@ -64,10 +64,11 @@ public static class SafetensorsHeaderParser
                             return true;
                         }
                     }
+                    throw new SafeTensorsParseException($"Expected 'data_offsets' array for tensor '{tensorName}'.");
                 }
             }
         }
 
-        return false;
+        throw new SafeTensorsParseException($"Tensor '{tensorName}' not found in the safetensors header.");
     }
 }

@@ -45,6 +45,12 @@ public unsafe class TensorReader : ITensorStreamer
         Span<byte> targetSpan = new Span<byte>(_buffer, (int)byteSize);
         
         // Blocking read directly into the native pointer
+        // Unbuffered reads must be page-aligned in both memory and file offset
+        if (byteOffset % Environment.SystemPageSize != 0)
+        {
+            throw new InvalidOperationException($"Zero-copy NVMe reads require file offsets to be aligned to {Environment.SystemPageSize} bytes. Unaligned offset: {byteOffset}");
+        }
+
         int bytesRead = RandomAccess.Read(_handle, targetSpan, byteOffset);
         
         if (bytesRead != byteSize)
@@ -87,5 +93,31 @@ public unsafe class TensorReader : ITensorStreamer
         _handle?.Dispose();
         _handle = null;
         _currentFilePath = null;
+    }
+
+    /// <summary>
+    /// Diagnostically verifies that a SafeTensors file contains data offsets perfectly 
+    /// aligned to the SystemPageSize, satisfying strict zero-copy DMA requirements.
+    /// </summary>
+    public static void VerifySafetensorsAlignment(string path, string tensorName)
+    {
+        if (!SafetensorsHeaderParser.TryGetTensorOffsets(path, tensorName, out long startOffset, out long length))
+        {
+            throw new SafeTensorsParseException($"Could not parse offsets for '{tensorName}'.");
+        }
+        
+        // Find the JSON header size to compute the absolute offset
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        Span<byte> lengthBuffer = stackalloc byte[8];
+        fs.ReadExactly(lengthBuffer);
+        long headerLength = BitConverter.ToInt64(lengthBuffer);
+
+        long absoluteStart = 8 + headerLength + startOffset;
+        long pageSize = Environment.SystemPageSize;
+        
+        if (absoluteStart % pageSize != 0)
+        {
+            throw new InvalidOperationException($"Strict alignment failed! Tensor '{tensorName}' absolute start offset ({absoluteStart}) is not aligned to the {pageSize}-byte page boundary. Zero-copy O_DIRECT DMA is impossible without buffered copying.");
+        }
     }
 }

@@ -45,5 +45,25 @@ public static partial class CudaNative
     public static partial CUresult cuStreamSynchronize(IntPtr hStream);
 
     [LibraryImport(CudaLib)]
-    public static partial CUresult cuMemcpyHtoDAsync(IntPtr dstDevice, IntPtr srcHost, nuint ByteCount, IntPtr hStream);
+    public static partial CUresult cuMemcpyHtoDAsync(nint dstDevice, nint srcHost, nuint byteCount, nint hStream);
+
+    [LibraryImport(CudaLib)]
+    public static partial CUresult cuGetErrorString(CUresult error, out nint pStr);
+
+    /// <summary>
+    /// Evaluates a CUDA result code and throws a detailed CudaException if it indicates failure.
+    /// </summary>
+    /// <param name="result">The CUresult from a CUDA Driver API call.</param>
+    public static void Check(CUresult result)
+    {
+        if (result != CUresult.CUDA_SUCCESS)
+        {
+            string errorMessage = "Unknown Error";
+            if (cuGetErrorString(result, out nint pStr) == CUresult.CUDA_SUCCESS && pStr != 0)
+            {
+                errorMessage = Marshal.PtrToStringUTF8(pStr) ?? errorMessage;
+            }
+            throw new CudaException(result, errorMessage);
+        }
+    }
 }
