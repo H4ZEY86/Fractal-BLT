@@ -1,5 +1,20 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
+
+static CudaNative()
+{
+    // Register platform‑specific DllImport resolver for CUDA driver library.
+    NativeLibrary.SetDllImportResolver(typeof(CudaNative).Assembly, (name, assembly, path) =>
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && name == "nvcuda")
+            return NativeLibrary.Load("nvcuda.dll");
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && name == "nvcuda")
+            return NativeLibrary.Load("libcuda.so");
+        return IntPtr.Zero;
+    });
+}
+
 
 namespace FractalBridge;
 
@@ -25,6 +40,18 @@ public static partial class CudaNative
 
     [LibraryImport(CudaLib)]
     public static partial CUresult cuCtxCreate(out IntPtr pctx, uint flags, int dev);
+
+    // Convenience wrappers that invoke Check()
+    public static void Init(uint flags) => Check(cuInit(flags));
+    public static void DeviceGet(out int device, int ordinal) => Check(cuDeviceGet(out device, ordinal));
+    public static void CtxCreate(out IntPtr pctx, uint flags, int dev) => Check(cuCtxCreate(out pctx, flags, dev));
+    public static void StreamCreate(out IntPtr phStream, uint flags) => Check(cuStreamCreate(out phStream, flags));
+    public static void MemHostRegister(IntPtr p, nuint bytesize, uint Flags) => Check(cuMemHostRegister(p, bytesize, Flags));
+    public static void MemHostUnregister(IntPtr p) => Check(cuMemHostUnregister(p));
+    public static void MemAlloc(out IntPtr dptr, nuint bytesize) => Check(cuMemAlloc(out dptr, bytesize));
+    public static void MemFree(IntPtr dptr) => Check(cuMemFree(dptr));
+    public static void StreamSynchronize(IntPtr hStream) => Check(cuStreamSynchronize(hStream));
+    public static void MemcpyHtoDAsync(IntPtr dstDevice, IntPtr srcHost, nuint byteCount, IntPtr hStream) => Check(cuMemcpyHtoDAsync(dstDevice, srcHost, byteCount, hStream));
 
     [LibraryImport(CudaLib)]
     public static partial CUresult cuMemAlloc(out IntPtr dptr, nuint bytesize);

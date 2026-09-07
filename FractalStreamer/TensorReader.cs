@@ -9,6 +9,23 @@ namespace FractalStreamer;
 /// Implements zero-allocation tensor reading using System.IO.RandomAccess 
 /// and page-aligned unmanaged memory buffers.
 /// </summary>
+public interface ITensorStreamer : IDisposable
+{
+    /// <summary>
+    /// Reads a chunk of a safetensors file directly into a caller‑provided destination.
+    /// </summary>
+    /// <param name="filePath">Path to the safetensors file.</param>
+    /// <param name="byteOffset">Byte offset within the file to start reading from.</param>
+    /// <param name="byteSize">Number of bytes to read.</param>
+    /// <param name="destination">Pointer to the destination memory (must be page‑aligned for unbuffered I/O).</param>
+    unsafe void ReadInto(string filePath, long byteOffset, int byteSize, void* destination);
+
+    /// <summary>
+    /// Legacy overload retained for managed callers – reads into a Span<byte>.
+    /// </summary>
+    unsafe Span<byte> MapTensorChunk(string filePath, long byteOffset, long byteSize);
+}
+
 public unsafe class TensorReader : ITensorStreamer
 {
     private void* _buffer;
