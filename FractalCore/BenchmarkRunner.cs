@@ -15,7 +15,7 @@ public static class BenchmarkRunner
         Console.WriteLine("\n[GAUNTLET] Initializing Fractal Architecture Pipeline...");
 
         // 1. Setup pipeline resources
-        var scorer = new FastNGramScorer();
+        var scorer = new ShannonEntropyScorer();
         var expertRegistry = new ExpertRegistry();
         expertRegistry.InitializeMockData(64); // 64 experts
 
@@ -33,7 +33,7 @@ public static class BenchmarkRunner
 
             // Measure BLT Encoder
             var sw = Stopwatch.StartNew();
-            int patchCount = BltEncoder.Patchify(sourceCode, 2.5f, boundariesSpan, ref scorer, 32);
+            int patchCount = BltEncoder.Patchify(sourceCode, 4.0f, boundariesSpan, ref scorer, 32);
             sw.Stop();
             double encoderTimeMs = sw.Elapsed.TotalMilliseconds;
             double encoderThroughputMBs = (sourceCode.Length / 1024.0 / 1024.0) / (encoderTimeMs / 1000.0);

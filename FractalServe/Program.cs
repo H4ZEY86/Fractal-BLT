@@ -45,9 +45,9 @@ public class Program
 
                 // 1. Patchify
                 byte[] inputBytes = Encoding.UTF8.GetBytes(inputContent);
-                var scorer = new FractalBltEncoder.FastNGramScorer();
+                var scorer = new FractalBltEncoder.ShannonEntropyScorer();
                 FractalBltEncoder.PatchBoundary[] boundaries = new FractalBltEncoder.PatchBoundary[Math.Max(inputBytes.Length / 2 + 1, 10)];
-                int patchCount = FractalBltEncoder.BltEncoder.Patchify(inputBytes, 2.5f, boundaries, ref scorer, 32);
+                int patchCount = FractalBltEncoder.BltEncoder.Patchify(inputBytes, 4.0f, boundaries, ref scorer, 32);
 
                 // 2. Routing
                 var expertRegistry = new FractalGnnRouter.ExpertRegistry();
