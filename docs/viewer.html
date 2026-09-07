@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FRACTAL-BLT // Documentation</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Extra styles for markdown content to match the site's dark aesthetic */
+        #content h1, #content h2, #content h3 {
+            color: var(--neon-cyan);
+            margin-top: 20px;
+        }
+        #content h1 {
+            color: var(--neon-magenta);
+            border-bottom: 1px solid var(--neon-magenta);
+            padding-bottom: 5px;
+        }
+        #content p, #content li {
+            color: var(--text-main);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        #content a {
+            color: var(--neon-green);
+            text-decoration: none;
+        }
+        #content a:hover {
+            text-decoration: underline;
+        }
+        #content pre {
+            background: #0f172a;
+            border-left: 3px solid var(--neon-cyan);
+            padding: 15px;
+            overflow-x: auto;
+            color: #38bdf8;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 15px 0;
+        }
+        #content code {
+            background: #0f172a;
+            color: #38bdf8;
+            padding: 2px 5px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #content blockquote {
+            border-left: 3px solid var(--neon-magenta);
+            margin-left: 0;
+            padding-left: 15px;
+            color: #94a3b8;
+        }
+        #content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        #content th, #content td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+            color: var(--text-main);
+        }
+        #content th {
+            color: var(--neon-magenta);
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="index.html">RETURN TO TERMINAL</a>
+    </nav>
+
+    <header>
+        <div class="glitch-wrapper">
+            <h1>FRACTAL<span>-DOCS</span></h1>
+            <h1 class="glitch" aria-hidden="true">FRACTAL<span>-DOCS</span></h1>
+            <div class="subtitle">.NET 10 NativeAOT // Documentation Viewer</div>
+        </div>
+        <div>
+            <span class="pulse" style="color: var(--neon-green); font-weight: bold; letter-spacing: 2px;">[ SYS.STATUS: NOMINAL ]</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <section class="view-section" style="display: block;">
+            <div class="panel" id="content">
+                <span class="pulse" style="color: var(--neon-cyan);">[ LOADING DATABANKS... ]</span>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        FRACTAL-BLT // ENGINEERED FOR ZERO-LATENCY SYSTEMS // APACHE 2.0 LICENSE
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const file = urlParams.get('file');
+            const contentDiv = document.getElementById('content');
+
+            if (file) {
+                fetch(file)
+                    .then(res => {
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        return res.text();
+                    })
+                    .then(text => {
+                        // Render Markdown using marked.js
+                        contentDiv.innerHTML = marked.parse(text);
+                    })
+                    .catch(e => {
+                        contentDiv.innerHTML = `<h2 style="color: var(--neon-magenta);">[!] CRITICAL ERROR</h2>
+                                                <p style="color: var(--text-main);">Failed to load document: <code>${file}</code></p>
+                                                <p style="color: #ef4444;">${e.message}</p>`;
+                    });
+            } else {
+                contentDiv.innerHTML = `<h2 style="color: var(--neon-magenta);">[!] NO DOCUMENT SPECIFIED</h2>`;
+            }
+        });
+    </script>
+</body>
+</html>
