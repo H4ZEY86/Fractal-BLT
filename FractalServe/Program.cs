@@ -40,8 +40,17 @@ public class Program
 
                 var writer = context.Response.BodyWriter;
 
-                string simulatedResponse = " This is a simulated response generated directly from the Fractal zero-allocation pipeline.";
-                string[] tokens = simulatedResponse.Split(' '); // Mock tokens for simulation
+                string modelPath = Environment.GetEnvironmentVariable("FRACTAL_MODEL") ?? "C:\\Fractal-BLT\\tiny-llama.safetensors";
+                
+                List<string> tokens;
+                try 
+                {
+                    tokens = FractalStreamer.SafetensorsHeaderParser.GetAllTensorNames(modelPath);
+                }
+                catch (Exception ex)
+                {
+                    tokens = new List<string> { "Error:", ex.Message };
+                }
 
                 foreach (var token in tokens)
                 {
@@ -51,7 +60,7 @@ public class Program
                     await writer.WriteAsync(s_dataPrefix);
                     
                     // Write token
-                    byte[] tokenBytes = Encoding.UTF8.GetBytes(" " + token);
+                    byte[] tokenBytes = Encoding.UTF8.GetBytes(" streamed: " + token);
                     await writer.WriteAsync(tokenBytes);
                     
                     // Write suffix
@@ -61,6 +70,7 @@ public class Program
                     
                     // Yield execution back to Kestrel's I/O loop
                     await Task.Yield();
+                    await Task.Delay(50); // Simulate token generation delay
                 }
 
                 // Final SSE terminator
