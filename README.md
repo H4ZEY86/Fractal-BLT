@@ -11,6 +11,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow.svg?style=for-the-badge)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/H4ZEY86/Fractal-BLT/ci.yml?style=for-the-badge)](https://github.com/H4ZEY86/Fractal-BLT/actions)
 [![Docker Support](https://img.shields.io/badge/Docker-Supported-2496ED?style=for-the-badge&logo=docker&logoColor=white)](Dockerfile)
+[![Donate PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/paypalme/CDyer1986)
 
 </div>
 
@@ -22,6 +23,7 @@
 - [**API Reference**](docs/API.md) - Comprehensive documentation for the REST/SSE completion endpoints.
 - [**Configuration Guide**](docs/CONFIGURATION.md) - How to tune Ring buffers, JIT thresholds, and channel capacities.
 - [**Security & Codeowners**](SECURITY.md) - Vulnerability reporting and repository governance.
+- [**Opure OZTAE & Ctrl_Alt_Haze**](https://saddlebrown-snake-437866.hostingersite.com/) - Sovereign Agent Security Enclave (Available for Commercial Licensing) & Electronic Music.
 
 ---
 
@@ -88,6 +90,12 @@ curl -N -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "fractal-moe", "messages": [{"role": "user", "content": "Write a quicksort in C#"}], "stream": true}'
 ```
+
+## 💖 Support the Project
+
+Fractal-BLT and the Opure Sovereign Enclave are entirely open-source. If you use this runtime in production or want to help cover the costs of CI/CD workflows, GPU Github Runners, and continued maintenance, please consider donating:
+
+**[Support Fractal-BLT via PayPal](https://www.paypal.com/paypalme/CDyer1986)**
 
 ## 📜 License
 Distributed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
