@@ -59,3 +59,38 @@ curl -N -X POST http://localhost:5000/v1/chat/completions \
 ```
 
 To integrate this programmatically, refer to the client scripts in the `examples/` directory of the repository.
+
+## 5. macOS and Apple Silicon (CPU Fallback)
+
+While Fractal-BLT is heavily optimized for Windows/Linux NVIDIA environments via direct PTX execution, **macOS users are not left out**. You can compile and run the engine using the self-contained `.zip` assets, but you will need to bypass the `nvcuda` P/Invoke hardware acceleration since NVIDIA drivers are unavailable on macOS.
+
+### Implementing the CPU Fallback
+
+To run the pipeline on an M-series Mac or an environment without an NVIDIA GPU, you can replace the CUDA JIT block in `FractalServe/Program.cs` with a direct unmanaged CPU math loop. 
+
+Locate the `--- CUDA PTX EXECUTION ---` block in `Program.cs` and replace it with:
+
+```csharp
+// --- APPLE SILICON / CPU FALLBACK EXECUTION ---
+// Compute SGEMV natively on the CPU: Y = W * X
+for (uint r = 0; r < rows; r++)
+{
+    float sum = 0f;
+    for (uint c = 0; c < cols; c++)
+    {
+        // hostWeights is row-major (rows x cols)
+        float w = ((float*)hostWeights)[r * cols + c];
+        float x = hostInput[c];
+        sum += w * x;
+    }
+    hostOutput[r] = sum;
+}
+
+outputMessage += " CPU Logits:";
+for (int i = 0; i < Math.Min(rows, 10); i++) 
+{
+    outputMessage += $" {hostOutput[i]:F4}";
+}
+```
+
+This ensures you can still test the unmanaged I/O streaming, zero-allocation routing, and patchification logic locally on your MacBook!
