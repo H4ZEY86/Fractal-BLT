@@ -17,6 +17,11 @@ public static class CudaResolver
         NativeLibrary.SetDllImportResolver(typeof(CudaResolver).Assembly, ResolveCudaLibrary);
     }
 
+    /// <summary>
+    /// Forces initialization of the static constructor.
+    /// </summary>
+    public static void Init() { }
+
     private static IntPtr ResolveCudaLibrary(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
     {
         // Only intercept the generic "nvcuda" name used in the P/Invoke signatures.

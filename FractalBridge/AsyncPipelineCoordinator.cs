@@ -8,26 +8,33 @@ namespace FractalBridge;
 /// <summary>
 /// Decouples NVMe disk reads and GPU memory copies using System.Threading.Channels.
 /// </summary>
-public class AsyncPipelineCoordinator
+public class AsyncPipelineCoordinator : IDisposable
 {
     private readonly MoEStagingBuffer _stagingBuffer;
     private readonly ITensorStreamer _streamer;
     private readonly Channel<MoEBlock> _gpuQueue;
+    private readonly IntPtr _cudaContext;
     private readonly IntPtr _cudaStream;
+    public MoEStagingBuffer StagingBuffer => _stagingBuffer;
     
     public AsyncPipelineCoordinator(MoEStagingBuffer stagingBuffer, ITensorStreamer streamer)
     {
         _stagingBuffer = stagingBuffer;
         _streamer = streamer;
         
-        // Initialize an unbuffered channel to hand off blocks instantly
-        _gpuQueue = Channel.CreateUnbounded<MoEBlock>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+        // Initialize a bounded channel with capacity 4 for back‑pressure
+        _gpuQueue = Channel.CreateBounded<MoEBlock>(new BoundedChannelOptions(4) { SingleReader = true, SingleWriter = true });
 
         // Initialize CUDA context and stream (assuming device 0 for scaffolding)
         CudaNative.cuInit(0);
         CudaNative.cuDeviceGet(out int device, 0);
-        CudaNative.cuCtxCreate(out IntPtr ctx, 0, device);
+        CudaNative.cuCtxCreate(out _cudaContext, 0, device);
         CudaNative.cuStreamCreate(out _cudaStream, 0);
+    }
+
+    public async Task RunAsync(string safetensorsPath, long[] offsets, long[] sizes)
+    {
+        await Task.WhenAll(StartDiskThreadAsync(safetensorsPath, offsets, sizes), StartGpuThreadAsync());
     }
 
     /// <summary>
@@ -54,7 +61,11 @@ public class AsyncPipelineCoordinator
             // For scaffolding, we assume the streamer populates the memory.
             unsafe
             {
-                var span = _streamer.MapTensorChunk(safetensorsPath, offsets[i], sizes[i]);
+                // Read directly into the block's host memory using zero‑allocation path
+                unsafe
+                {
+                    _streamer.ReadInto(safetensorsPath, offsets[i], (int)sizes[i], block.HostPtr);
+                }
             }
             
             // In a highly optimized flow, TensorReader reads DIRECTLY into block.HostPtr.
@@ -96,5 +107,10 @@ public class AsyncPipelineCoordinator
             // Recycle the block
             block.State = BlockState.Empty;
         }
+    }
+    public void Dispose()
+    {
+        // Add disposal logic if necessary for CUDA resources in future.
+        // For now, MoEStagingBuffer owns the memory.
     }
 }

@@ -2,20 +2,6 @@ using System;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 
-static CudaNative()
-{
-    // Register platform‑specific DllImport resolver for CUDA driver library.
-    NativeLibrary.SetDllImportResolver(typeof(CudaNative).Assembly, (name, assembly, path) =>
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && name == "nvcuda")
-            return NativeLibrary.Load("nvcuda.dll");
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && name == "nvcuda")
-            return NativeLibrary.Load("libcuda.so");
-        return IntPtr.Zero;
-    });
-}
-
-
 namespace FractalBridge;
 
 /// <summary>
@@ -25,6 +11,11 @@ namespace FractalBridge;
 public static partial class CudaNative
 {
     private const string CudaLib = "nvcuda"; // On Linux, use NativeLibrary.SetDllImportResolver to map to libcuda.so
+
+    static CudaNative()
+    {
+        CudaResolver.Init();
+    }
 
     public enum CUresult
     {

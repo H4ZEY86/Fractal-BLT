@@ -34,39 +34,46 @@ public static class SafetensorsHeaderParser
         if (fs.Read(headerBytes) != headerLength)
             throw new SafeTensorsParseException("Failed to read the entire SafeTensors JSON header.");
 
-        // Parse JSON using Utf8JsonReader
-        var reader = new Utf8JsonReader(headerBytes);
-
-        while (reader.Read())
+        try
         {
-            if (reader.TokenType == JsonTokenType.PropertyName)
+            // Parse JSON using Utf8JsonReader
+            var reader = new Utf8JsonReader(headerBytes);
+
+            while (reader.Read())
             {
-                if (reader.ValueTextEquals(tensorName))
+                if (reader.TokenType == JsonTokenType.PropertyName)
                 {
-                    // Found the tensor, the value should be an object containing "data_offsets"
-                    reader.Read(); // move to StartObject
-                    if (reader.TokenType != JsonTokenType.StartObject)
-                        continue;
-
-                    while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+                    if (reader.ValueTextEquals(tensorName))
                     {
-                        if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals("data_offsets"))
-                        {
-                            // "data_offsets": [START, END]
-                            reader.Read(); // move to StartArray
-                            reader.Read(); // move to START number
-                            long startOffset = reader.GetInt64();
-                            reader.Read(); // move to END number
-                            long endOffset = reader.GetInt64();
+                        // Found the tensor, the value should be an object containing "data_offsets"
+                        reader.Read(); // move to StartObject
+                        if (reader.TokenType != JsonTokenType.StartObject)
+                            continue;
 
-                            offset = startOffset;
-                            length = endOffset - startOffset;
-                            return true;
+                        while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+                        {
+                            if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals("data_offsets"))
+                            {
+                                // "data_offsets": [START, END]
+                                reader.Read(); // move to StartArray
+                                reader.Read(); // move to START number
+                                long startOffset = reader.GetInt64();
+                                reader.Read(); // move to END number
+                                long endOffset = reader.GetInt64();
+
+                                offset = startOffset;
+                                length = endOffset - startOffset;
+                                return true;
+                            }
                         }
+                        throw new SafeTensorsParseException($"Expected 'data_offsets' array for tensor '{tensorName}'.");
                     }
-                    throw new SafeTensorsParseException($"Expected 'data_offsets' array for tensor '{tensorName}'.");
                 }
             }
+        }
+        catch (Exception ex) when (ex is JsonException || ex is InvalidOperationException)
+        {
+            throw new SafeTensorsParseException("Failed to parse SafeTensors JSON header.", ex);
         }
 
         throw new SafeTensorsParseException($"Tensor '{tensorName}' not found in the safetensors header.");

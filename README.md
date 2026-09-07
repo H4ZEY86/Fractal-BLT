@@ -46,3 +46,20 @@ curl -X POST http://localhost:5000/v1/chat/completions \
      -H "Content-Type: application/json" \
      -d '{"model": "fractal-moe-64x", "messages": [{"role": "user", "content": "Ignite sequence."}], "stream": true}'
 ```
+
+---
+
+## 🗄️ Alignment Policy
+
+For true zero-copy O_DIRECT DMA from NVMe to GPU, file offsets must be aligned to the OS page size (typically 4096 bytes on Windows/Linux).
+However, most real-world `.safetensors` files contain unaligned data fragments.
+
+**Fractal-BLT employs a pragmatic alignment strategy:**
+- **Fast Path:** If a tensor's byte offset and size are perfectly page-aligned, it uses direct zero-copy unbuffered I/O.
+- **Fallback Path:** If unaligned, it seamlessly allocates a short-lived, page-aligned staging buffer in pinned memory, over-reads the necessary sector, copies the exact byte range to the destination, and frees the staging buffer.
+
+You can verify the alignment of your `.safetensors` model using the CLI:
+```bash
+./FractalCore/bin/Release/net10.0/linux-x64/publish/FractalCore --verify ./model.safetensors [--strict]
+```
+If `--strict` is passed, the runtime will throw an exception if any unaligned tensors are detected.

@@ -9,6 +9,14 @@ public static class Program
     {
         Console.WriteLine("/// FRACTAL-CORE BOOT SEQUENCE INITIALIZED ///");
         
+        if (args.Length > 0 && args[0] == "--verify")
+        {
+            string path = args.Length > 1 ? args[1] : @".\dummy_expert.safetensors";
+            bool strict = args.Length > 2 && args[2] == "--strict";
+            FractalStreamer.TensorReader.VerifySafetensorsAlignment(path, strict);
+            return;
+        }
+
         string dummySafetensorsPath = @".\dummy_expert.safetensors";
         
         // Generate a 10MB UTF-8 source payload

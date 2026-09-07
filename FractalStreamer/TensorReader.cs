@@ -9,23 +9,6 @@ namespace FractalStreamer;
 /// Implements zero-allocation tensor reading using System.IO.RandomAccess 
 /// and page-aligned unmanaged memory buffers.
 /// </summary>
-public interface ITensorStreamer : IDisposable
-{
-    /// <summary>
-    /// Reads a chunk of a safetensors file directly into a caller‑provided destination.
-    /// </summary>
-    /// <param name="filePath">Path to the safetensors file.</param>
-    /// <param name="byteOffset">Byte offset within the file to start reading from.</param>
-    /// <param name="byteSize">Number of bytes to read.</param>
-    /// <param name="destination">Pointer to the destination memory (must be page‑aligned for unbuffered I/O).</param>
-    unsafe void ReadInto(string filePath, long byteOffset, int byteSize, void* destination);
-
-    /// <summary>
-    /// Legacy overload retained for managed callers – reads into a Span<byte>.
-    /// </summary>
-    unsafe Span<byte> MapTensorChunk(string filePath, long byteOffset, long byteSize);
-}
-
 public unsafe class TensorReader : ITensorStreamer
 {
     private void* _buffer;
@@ -34,8 +17,69 @@ public unsafe class TensorReader : ITensorStreamer
     private string? _currentFilePath;
 
     /// <summary>
-    /// Maps a chunk of a safetensors file directly into page-aligned unmanaged memory.
+    /// Reads a chunk of a safetensors file directly into a caller‑provided destination.
+    /// Fast path: aligned offset -> unbuffered read directly into destination.
+    /// Slow path: unaligned offset -> short-lived aligned staging buffer, copy, free.
     /// </summary>
+    public void ReadInto(string filePath, long byteOffset, int byteSize, void* destination)
+    {
+        if (byteOffset < 0 || byteSize <= 0)
+            throw new ArgumentOutOfRangeException("Offset and size must be positive.");
+        if (destination == null)
+            throw new ArgumentNullException(nameof(destination));
+
+        if (_currentFilePath != filePath || _handle == null || _handle.IsInvalid)
+        {
+            _handle?.Dispose();
+            _handle = UnbufferedFile.OpenUnbuffered(filePath);
+            _currentFilePath = filePath;
+        }
+
+        long fileLength = RandomAccess.GetLength(_handle);
+        if (byteOffset + byteSize > fileLength)
+            throw new ArgumentOutOfRangeException(nameof(byteSize), "Requested range exceeds file length.");
+
+        int pageSize = Environment.SystemPageSize;
+        bool isAligned = (byteOffset % pageSize) == 0 && (byteSize % pageSize) == 0;
+
+        if (isAligned)
+        {
+            // Fast path: direct unbuffered read into provided destination (which should also be aligned in production)
+            Span<byte> targetSpan = new Span<byte>(destination, byteSize);
+            int bytesRead = RandomAccess.Read(_handle, targetSpan, byteOffset);
+            if (bytesRead != byteSize)
+                throw new IOException($"Expected to read {byteSize} bytes, but read {bytesRead}.");
+        }
+        else
+        {
+            // Slow path: Staging buffer for unaligned offset
+            long alignedOffset = byteOffset - (byteOffset % pageSize);
+            int offsetDiff = (int)(byteOffset - alignedOffset);
+            int alignedSize = (byteSize + offsetDiff + pageSize - 1) & ~(pageSize - 1);
+
+            void* stagingBuffer = NativeMemory.AlignedAlloc((nuint)alignedSize, (nuint)pageSize);
+            try
+            {
+                Span<byte> stagingSpan = new Span<byte>(stagingBuffer, alignedSize);
+                int bytesRead = RandomAccess.Read(_handle, stagingSpan, alignedOffset);
+                if (bytesRead < byteSize + offsetDiff)
+                    throw new IOException($"Staging read failed to read enough bytes.");
+
+                // Copy from staging buffer to destination
+                Span<byte> destSpan = new Span<byte>(destination, byteSize);
+                stagingSpan.Slice(offsetDiff, byteSize).CopyTo(destSpan);
+            }
+            finally
+            {
+                NativeMemory.AlignedFree(stagingBuffer);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Legacy overload retained for managed callers – reads into a Span<byte>.
+    /// </summary>
+    [Obsolete("Use ReadInto with a pre-allocated pointer for true zero-copy.")]
     public Span<byte> MapTensorChunk(string filePath, long byteOffset, long byteSize)
     {
         if (byteOffset < 0 || byteSize <= 0)
@@ -116,25 +160,40 @@ public unsafe class TensorReader : ITensorStreamer
     /// Diagnostically verifies that a SafeTensors file contains data offsets perfectly 
     /// aligned to the SystemPageSize, satisfying strict zero-copy DMA requirements.
     /// </summary>
-    public static void VerifySafetensorsAlignment(string path, string tensorName)
+    public static void VerifySafetensorsAlignment(string path, bool strict = false)
     {
-        if (!SafetensorsHeaderParser.TryGetTensorOffsets(path, tensorName, out long startOffset, out long length))
-        {
-            throw new SafeTensorsParseException($"Could not parse offsets for '{tensorName}'.");
-        }
-        
-        // Find the JSON header size to compute the absolute offset
         using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         Span<byte> lengthBuffer = stackalloc byte[8];
         fs.ReadExactly(lengthBuffer);
         long headerLength = BitConverter.ToInt64(lengthBuffer);
 
-        long absoluteStart = 8 + headerLength + startOffset;
+        byte[] headerBytes = new byte[headerLength];
+        fs.ReadExactly(headerBytes);
+
         long pageSize = Environment.SystemPageSize;
-        
-        if (absoluteStart % pageSize != 0)
+        int totalTensors = 0;
+        int alignedTensors = 0;
+
+        using var jsonDoc = System.Text.Json.JsonDocument.Parse(headerBytes);
+        foreach (var prop in jsonDoc.RootElement.EnumerateObject())
         {
-            throw new InvalidOperationException($"Strict alignment failed! Tensor '{tensorName}' absolute start offset ({absoluteStart}) is not aligned to the {pageSize}-byte page boundary. Zero-copy O_DIRECT DMA is impossible without buffered copying.");
+            if (prop.Name == "__metadata__") continue;
+            
+            totalTensors++;
+            var dataOffsets = prop.Value.GetProperty("data_offsets");
+            long startOffset = dataOffsets[0].GetInt64();
+            long absoluteStart = 8 + headerLength + startOffset;
+            
+            if (absoluteStart % pageSize == 0)
+            {
+                alignedTensors++;
+            }
+            else if (strict)
+            {
+                throw new InvalidOperationException($"Strict alignment failed! Tensor '{prop.Name}' absolute start offset ({absoluteStart}) is not aligned to the {pageSize}-byte page boundary.");
+            }
         }
+
+        Console.WriteLine($"Alignment Stats for '{path}': {alignedTensors}/{totalTensors} tensors are page-aligned ({pageSize} bytes).");
     }
 }
