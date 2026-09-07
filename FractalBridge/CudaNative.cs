@@ -60,7 +60,13 @@ public static partial class CudaNative
     public static partial CUresult cuStreamCreate(out IntPtr phStream, uint flags);
 
     [LibraryImport(CudaLib)]
+    public static partial CUresult cuStreamDestroy(IntPtr hStream);
+
+    [LibraryImport(CudaLib)]
     public static partial CUresult cuStreamSynchronize(IntPtr hStream);
+
+    [LibraryImport(CudaLib)]
+    public static partial CUresult cuCtxDestroy(IntPtr ctx);
 
     [LibraryImport(CudaLib)]
     public static partial CUresult cuMemcpyHtoDAsync(nint dstDevice, nint srcHost, nuint byteCount, nint hStream);

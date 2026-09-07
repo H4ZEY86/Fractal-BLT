@@ -1,0 +1,33 @@
+name: Fractal-BLT CI
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Run Tests
+      # The CUDA E2E test dynamically skips itself if no CUDA device is present
+      run: dotnet test --no-restore --verbosity normal
+
+    - name: Build FractalCore (Release)
+      # Ensures NativeAOT constraints are preserved
+      run: dotnet build FractalCore/FractalCore.csproj -c Release --no-restore
+
+    - name: Build FractalServe (Release)
+      run: dotnet build FractalServe/FractalServe.csproj -c Release --no-restore
