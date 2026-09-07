@@ -9,6 +9,10 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 namespace FractalServe;
 
+/// <summary>
+/// The primary Kestrel web host exposing the zero-allocation Fractal-BLT pipeline.
+/// Designed for NativeAOT compilation and lock-free async streaming.
+/// </summary>
 public class Program
 {
     private static readonly byte[] s_dataPrefix = Encoding.UTF8.GetBytes("data: {\"choices\": [{\"delta\": {\"content\": \"");

@@ -10,6 +10,13 @@ namespace FractalBltEncoder;
 /// </summary>
 public struct ShannonEntropyScorer : IEntropyScorer
 {
+    /// <summary>
+    /// Computes the true Shannon entropy for the next byte given a sliding history window.
+    /// This method is aggressively inlined and performs zero managed heap allocations.
+    /// </summary>
+    /// <param name="nextByte">The next UTF-8 byte in the stream.</param>
+    /// <param name="history">A ReadOnlySpan containing the historical byte context.</param>
+    /// <returns>The Shannon entropy value (H) as a single-precision float.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public unsafe float ScoreNextByte(byte nextByte, ReadOnlySpan<byte> history)
     {
