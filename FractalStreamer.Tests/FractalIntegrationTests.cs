@@ -109,7 +109,7 @@ public class ComputeNode
 
         // 3. Setup Expert Registry
         var expertRegistry = new ExpertRegistry();
-        expertRegistry.InitializeMockData(64);
+        expertRegistry.InitializeRandom(64);
 
         var routes = new RouteAssignment[patchCount];
 

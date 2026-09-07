@@ -17,7 +17,7 @@ public static class BenchmarkRunner
         // 1. Setup pipeline resources
         var scorer = new ShannonEntropyScorer();
         var expertRegistry = new ExpertRegistry();
-        expertRegistry.InitializeMockData(64); // 64 experts
+        expertRegistry.InitializeRandom(64); // 64 experts
 
         int maxPatches = sourceCode.Length / 2; // worst case
         // Using unmanaged arrays to avoid GC pressure entirely during the gauntlet

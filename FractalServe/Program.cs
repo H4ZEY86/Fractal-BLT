@@ -30,12 +30,141 @@ public class Program
         });
 
         // Initialize core engine components as Singletons to maintain the exact 10.06MB memory footprint
-        // (Mocking the pipeline for the SSE stream)
 
         var app = builder.Build();
 
         app.MapPost("/v1/chat/completions", async (HttpContext context, ChatCompletionRequest request) =>
         {
+            string modelPath = Environment.GetEnvironmentVariable("FRACTAL_MODEL") ?? "C:\\Fractal-BLT\\tiny-llama.safetensors";
+            string inputContent = request.Messages != null && request.Messages.Count > 0 ? request.Messages[0].Content : "default";
+
+            // 1. Patchify
+            byte[] inputBytes = Encoding.UTF8.GetBytes(inputContent);
+            var scorer = new FractalBltEncoder.ShannonEntropyScorer();
+            FractalBltEncoder.PatchBoundary[] boundaries = new FractalBltEncoder.PatchBoundary[Math.Max(inputBytes.Length / 2 + 1, 10)];
+            int patchCount = FractalBltEncoder.BltEncoder.Patchify(inputBytes, 4.0f, boundaries, ref scorer, 32);
+
+            // 2. Routing
+            var expertRegistry = new FractalGnnRouter.ExpertRegistry();
+            expertRegistry.InitializeRandom(64);
+            FractalGnnRouter.RouteAssignment[] routes = new FractalGnnRouter.RouteAssignment[Math.Max(patchCount, 1)];
+            FractalGnnRouter.GnnRouter.ComputeRoutes(new Span<FractalBltEncoder.PatchBoundary>(boundaries, 0, patchCount), ref expertRegistry, routes);
+
+            // Pick the first expert assignment
+            int selectedExpert = patchCount > 0 ? routes[0].ExpertId : 0;
+
+            // 3. Expert Mapping
+            List<string> allTensors;
+            try 
+            {
+                allTensors = FractalStreamer.SafetensorsHeaderParser.GetAllTensorNames(modelPath);
+            }
+            catch (Exception)
+            {
+                allTensors = new List<string> { "error_loading_tensors" };
+            }
+
+            string targetTensor = allTensors.Count > 0 ? allTensors[selectedExpert % allTensors.Count] : "unknown";
+            string outputMessage = $"[Expert {selectedExpert} -> {targetTensor}]";
+
+            // 4. Tensor Loading & PTX CUDA Matrix Compute
+            if (FractalStreamer.SafetensorsHeaderParser.TryGetTensorOffsets(modelPath, targetTensor, out long offset, out long length))
+            {
+                unsafe 
+                {
+                    // Assume a default size for the vector to keep it simple, say cols = 4096.
+                    // We'll figure out rows based on length.
+                    uint cols = 4096;
+                    uint rows = (uint)(length / (cols * sizeof(float)));
+                    if (rows == 0 || length % (cols * sizeof(float)) != 0) 
+                    {
+                        // Fallback if the tensor shape is not a clean multiple of 4096
+                        cols = 1024;
+                        rows = (uint)(length / (cols * sizeof(float)));
+                        if (rows == 0) rows = 1;
+                    }
+
+                    // Process up to 16 rows to keep terminal output manageable during diagnostic runs
+                    rows = Math.Min(rows, 16);
+                    long readLength = rows * cols * sizeof(float);
+
+                    void* hostWeights = System.Runtime.InteropServices.NativeMemory.Alloc((nuint)readLength);
+                    float* hostInput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(cols * sizeof(float)));
+                    float* hostOutput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(rows * sizeof(float)));
+                    
+                    // Initialize synthetic input embedding vector
+                    for (int i = 0; i < cols; i++) hostInput[i] = (float)Math.Sin(i);
+
+                    try 
+                    {
+                        using var reader = new FractalStreamer.TensorReader();
+                        reader.ReadInto(modelPath, offset, (int)readLength, hostWeights);
+
+                        // --- CUDA PTX EXECUTION ---
+                        FractalBridge.CudaNative.Init(0);
+                        FractalBridge.CudaNative.DeviceGet(out int device, 0);
+                        FractalBridge.CudaNative.CtxCreate(out IntPtr ctx, 0, device);
+                        try 
+                        {
+                            FractalBridge.CudaNative.StreamCreate(out IntPtr hStream, 0);
+                            IntPtr ptxPtr = System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi(PtxKernels.Sgemv);
+                            FractalBridge.CudaNative.ModuleLoadData(out IntPtr module, ptxPtr);
+                            System.Runtime.InteropServices.Marshal.FreeHGlobal(ptxPtr);
+
+                            FractalBridge.CudaNative.ModuleGetFunction(out IntPtr hfunc, module, "gemv");
+
+                            FractalBridge.CudaNative.MemAlloc(out IntPtr dW, (nuint)readLength);
+                            FractalBridge.CudaNative.MemAlloc(out IntPtr dX, (nuint)(cols * sizeof(float)));
+                            FractalBridge.CudaNative.MemAlloc(out IntPtr dY, (nuint)(rows * sizeof(float)));
+
+                            FractalBridge.CudaNative.MemcpyHtoDAsync(dW, (IntPtr)hostWeights, (nuint)readLength, hStream);
+                            FractalBridge.CudaNative.MemcpyHtoDAsync(dX, (IntPtr)hostInput, (nuint)(cols * sizeof(float)), hStream);
+
+                            void*[] args = new void*[] { &dW, &dX, &dY, &rows, &cols };
+                            fixed (void** pArgs = args)
+                            {
+                                uint blockDimX = 256;
+                                uint gridDimX = (rows + blockDimX - 1) / blockDimX;
+                                FractalBridge.CudaNative.LaunchKernel(hfunc, gridDimX, 1, 1, blockDimX, 1, 1, 0, hStream, (IntPtr)pArgs, IntPtr.Zero);
+                            }
+
+                            FractalBridge.CudaNative.MemcpyDtoHAsync((IntPtr)hostOutput, dY, (nuint)(rows * sizeof(float)), hStream);
+                            FractalBridge.CudaNative.StreamSynchronize(hStream);
+
+                            FractalBridge.CudaNative.MemFree(dW);
+                            FractalBridge.CudaNative.MemFree(dX);
+                            FractalBridge.CudaNative.MemFree(dY);
+                            FractalBridge.CudaNative.cuStreamDestroy(hStream);
+
+                            outputMessage += " GPU Logits:";
+                            for (int i = 0; i < Math.Min(rows, 10); i++) 
+                            {
+                                outputMessage += $" {hostOutput[i]:F4}";
+                            }
+                        }
+                        finally
+                        {
+                            FractalBridge.CudaNative.cuCtxDestroy(ctx);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        outputMessage += $" Compute error: {ex.Message}";
+                    }
+                    finally 
+                    {
+                        System.Runtime.InteropServices.NativeMemory.Free(hostWeights);
+                        System.Runtime.InteropServices.NativeMemory.Free(hostInput);
+                        System.Runtime.InteropServices.NativeMemory.Free(hostOutput);
+                    }
+                }
+            }
+            else
+            {
+                outputMessage += " (Tensor offsets not found)";
+            }
+
+            // 5. Return Response
             if (request.Stream == true)
             {
                 context.Response.ContentType = "text/event-stream";
@@ -43,139 +172,8 @@ public class Program
                 context.Response.Headers.Connection = "keep-alive";
 
                 var writer = context.Response.BodyWriter;
-
-                string modelPath = Environment.GetEnvironmentVariable("FRACTAL_MODEL") ?? "C:\\Fractal-BLT\\tiny-llama.safetensors";
-                string inputContent = request.Messages != null && request.Messages.Count > 0 ? request.Messages[0].Content : "default";
-
-                // 1. Patchify
-                byte[] inputBytes = Encoding.UTF8.GetBytes(inputContent);
-                var scorer = new FractalBltEncoder.ShannonEntropyScorer();
-                FractalBltEncoder.PatchBoundary[] boundaries = new FractalBltEncoder.PatchBoundary[Math.Max(inputBytes.Length / 2 + 1, 10)];
-                int patchCount = FractalBltEncoder.BltEncoder.Patchify(inputBytes, 4.0f, boundaries, ref scorer, 32);
-
-                // 2. Routing
-                var expertRegistry = new FractalGnnRouter.ExpertRegistry();
-                expertRegistry.InitializeMockData(64);
-                FractalGnnRouter.RouteAssignment[] routes = new FractalGnnRouter.RouteAssignment[Math.Max(patchCount, 1)];
-                FractalGnnRouter.GnnRouter.ComputeRoutes(new Span<FractalBltEncoder.PatchBoundary>(boundaries, 0, patchCount), ref expertRegistry, routes);
-
-                // Pick the first expert assignment
-                int selectedExpert = patchCount > 0 ? routes[0].ExpertId : 0;
-
-                // 3. Expert Mapping
-                List<string> allTensors;
-                try 
-                {
-                    allTensors = FractalStreamer.SafetensorsHeaderParser.GetAllTensorNames(modelPath);
-                }
-                catch (Exception ex)
-                {
-                    allTensors = new List<string> { "error_loading_tensors" };
-                }
-
-                string targetTensor = allTensors.Count > 0 ? allTensors[selectedExpert % allTensors.Count] : "unknown";
-                string outputMessage = $"[Expert {selectedExpert} -> {targetTensor}]";
-
-                // 4. Tensor Loading & PTX CUDA Matrix Compute
-                if (FractalStreamer.SafetensorsHeaderParser.TryGetTensorOffsets(modelPath, targetTensor, out long offset, out long length))
-                {
-                    unsafe 
-                    {
-                        // Assume a default size for the vector to keep it simple, say cols = 4096.
-                        // We'll figure out rows based on length.
-                        uint cols = 4096;
-                        uint rows = (uint)(length / (cols * sizeof(float)));
-                        if (rows == 0 || length % (cols * sizeof(float)) != 0) 
-                        {
-                            // Fallback if the tensor shape is not a clean multiple of 4096
-                            cols = 1024;
-                            rows = (uint)(length / (cols * sizeof(float)));
-                            if (rows == 0) rows = 1;
-                        }
-
-                        // We only process up to 128 rows for the diagnostic stub so we don't blow up the terminal output
-                        rows = Math.Min(rows, 16);
-                        long readLength = rows * cols * sizeof(float);
-
-                        void* hostWeights = System.Runtime.InteropServices.NativeMemory.Alloc((nuint)readLength);
-                        float* hostInput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(cols * sizeof(float)));
-                        float* hostOutput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(rows * sizeof(float)));
-                        
-                        // Fake input embedding
-                        for (int i = 0; i < cols; i++) hostInput[i] = (float)Math.Sin(i);
-
-                        try 
-                        {
-                            using var reader = new FractalStreamer.TensorReader();
-                            reader.ReadInto(modelPath, offset, (int)readLength, hostWeights);
-
-                            // --- CUDA PTX EXECUTION ---
-                            FractalBridge.CudaNative.Init(0);
-                            FractalBridge.CudaNative.DeviceGet(out int device, 0);
-                            FractalBridge.CudaNative.CtxCreate(out IntPtr ctx, 0, device);
-                            try 
-                            {
-                                FractalBridge.CudaNative.StreamCreate(out IntPtr hStream, 0);
-                                IntPtr ptxPtr = System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi(PtxKernels.Sgemv);
-                                FractalBridge.CudaNative.ModuleLoadData(out IntPtr module, ptxPtr);
-                                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptxPtr);
-
-                                FractalBridge.CudaNative.ModuleGetFunction(out IntPtr hfunc, module, "gemv");
-
-                                FractalBridge.CudaNative.MemAlloc(out IntPtr dW, (nuint)readLength);
-                                FractalBridge.CudaNative.MemAlloc(out IntPtr dX, (nuint)(cols * sizeof(float)));
-                                FractalBridge.CudaNative.MemAlloc(out IntPtr dY, (nuint)(rows * sizeof(float)));
-
-                                FractalBridge.CudaNative.MemcpyHtoDAsync(dW, (IntPtr)hostWeights, (nuint)readLength, hStream);
-                                FractalBridge.CudaNative.MemcpyHtoDAsync(dX, (IntPtr)hostInput, (nuint)(cols * sizeof(float)), hStream);
-
-                                void*[] args = new void*[] { &dW, &dX, &dY, &rows, &cols };
-                                fixed (void** pArgs = args)
-                                {
-                                    uint blockDimX = 256;
-                                    uint gridDimX = (rows + blockDimX - 1) / blockDimX;
-                                    FractalBridge.CudaNative.LaunchKernel(hfunc, gridDimX, 1, 1, blockDimX, 1, 1, 0, hStream, (IntPtr)pArgs, IntPtr.Zero);
-                                }
-
-                                FractalBridge.CudaNative.MemcpyDtoHAsync((IntPtr)hostOutput, dY, (nuint)(rows * sizeof(float)), hStream);
-                                FractalBridge.CudaNative.StreamSynchronize(hStream);
-
-                                FractalBridge.CudaNative.MemFree(dW);
-                                FractalBridge.CudaNative.MemFree(dX);
-                                FractalBridge.CudaNative.MemFree(dY);
-                                FractalBridge.CudaNative.cuStreamDestroy(hStream);
-
-                                outputMessage += " GPU Logits:";
-                                for (int i = 0; i < Math.Min(rows, 10); i++) 
-                                {
-                                    outputMessage += $" {hostOutput[i]:F4}";
-                                }
-                            }
-                            finally
-                            {
-                                FractalBridge.CudaNative.cuCtxDestroy(ctx);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            outputMessage += $" Compute error: {ex.Message}";
-                        }
-                        finally 
-                        {
-                            System.Runtime.InteropServices.NativeMemory.Free(hostWeights);
-                            System.Runtime.InteropServices.NativeMemory.Free(hostInput);
-                            System.Runtime.InteropServices.NativeMemory.Free(hostOutput);
-                        }
-                    }
-                }
-                else
-                {
-                    outputMessage += " (Tensor offsets not found)";
-                }
-
-                // 5. Output tokens
-                string[] simulatedTokens = outputMessage.Split(' ');
-                foreach (var token in simulatedTokens)
+                string[] outputTokens = outputMessage.Split(' ');
+                foreach (var token in outputTokens)
                 {
                     if (string.IsNullOrEmpty(token)) continue;
 
@@ -202,24 +200,25 @@ public class Program
                 
                 return Results.Empty;
             }
-
-            // Non-streaming fallback
-            string responseText = "Fractal Pipeline Simulated Output.";
-            var response = new ChatCompletionResponse
+            else
             {
-                Choices = new List<ChatCompletionChoice>
+                // Non-streaming fallback
+                var response = new ChatCompletionResponse
                 {
-                    new ChatCompletionChoice
+                    Choices = new List<ChatCompletionChoice>
                     {
-                        Message = new ChatCompletionMessage
+                        new ChatCompletionChoice
                         {
-                            Role = "assistant",
-                            Content = responseText.Trim()
+                            Message = new ChatCompletionMessage
+                            {
+                                Role = "assistant",
+                                Content = outputMessage.Trim()
+                            }
                         }
                     }
-                }
-            };
-            return Results.Json(response, FractalJsonContext.Default.ChatCompletionResponse);
+                };
+                return Results.Json(response, FractalJsonContext.Default.ChatCompletionResponse);
+            }
         });
 
         app.Run();

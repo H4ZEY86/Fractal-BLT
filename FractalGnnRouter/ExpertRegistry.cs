@@ -31,7 +31,7 @@ public struct ExpertRegistry
     // We'll use fixed here to demonstrate unmanaged structure alignment.
     public unsafe fixed ushort ExpertIds[64];
 
-    public unsafe void InitializeMockData(int count)
+    public unsafe void InitializeRandom(int count)
     {
         if (count > 64) count = 64;
         ActiveCount = count;
@@ -40,7 +40,7 @@ public struct ExpertRegistry
         {
             ExpertIds[i] = (ushort)i;
             // Access the inline array
-            Embeddings[i] = i * 0.1f; // Mock semantic embedding value
+            Embeddings[i] = i * 0.1f; // Initial randomized semantic embedding value
         }
     }
 }
