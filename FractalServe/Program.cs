@@ -71,20 +71,24 @@ public class Program
             }
 
             // Non-streaming fallback
+            string responseText = "Fractal Pipeline Simulated Output.";
             var response = new ChatCompletionResponse
-{
-    Choices = new List<ChatCompletionChoice>
-    {
-        new ChatCompletionChoice
-        {
-            Message = new ChatCompletionMessage
             {
-                Role = "assistant",
-                Content = responseText.Trim()
-            }
-        }
-    }
-};
-return Results.Json(response, FractalJsonContext.Default.ChatCompletionResponse);
+                Choices = new List<ChatCompletionChoice>
+                {
+                    new ChatCompletionChoice
+                    {
+                        Message = new ChatCompletionMessage
+                        {
+                            Role = "assistant",
+                            Content = responseText.Trim()
+                        }
+                    }
+                }
+            };
+            return Results.Json(response, FractalJsonContext.Default.ChatCompletionResponse);
+        });
+
+        app.Run();
     }
 }
