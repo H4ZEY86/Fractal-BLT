@@ -1,12 +1,12 @@
-name: Fractal-BLT CI
+# // name: Fractal-BLT CI
 
-on:
+#on:
   push:
     branches: [ "master", "main" ]
   pull_request:
     branches: [ "master", "main" ]
 
-jobs:
+#jobs:
   build-and-test:
     runs-on: ubuntu-latest
     
