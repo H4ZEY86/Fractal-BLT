@@ -72,34 +72,95 @@ public class Program
                 string targetTensor = allTensors.Count > 0 ? allTensors[selectedExpert % allTensors.Count] : "unknown";
                 string outputMessage = $"[Expert {selectedExpert} -> {targetTensor}]";
 
-                // 4. Tensor Loading & Stub Compute
+                // 4. Tensor Loading & PTX CUDA Matrix Compute
                 if (FractalStreamer.SafetensorsHeaderParser.TryGetTensorOffsets(modelPath, targetTensor, out long offset, out long length))
                 {
-                    long readLength = Math.Min(length, 1024); // read up to 1KB for checksum
                     unsafe 
                     {
-                        void* buffer = System.Runtime.InteropServices.NativeMemory.Alloc((nuint)readLength);
+                        // Assume a default size for the vector to keep it simple, say cols = 4096.
+                        // We'll figure out rows based on length.
+                        uint cols = 4096;
+                        uint rows = (uint)(length / (cols * sizeof(float)));
+                        if (rows == 0 || length % (cols * sizeof(float)) != 0) 
+                        {
+                            // Fallback if the tensor shape is not a clean multiple of 4096
+                            cols = 1024;
+                            rows = (uint)(length / (cols * sizeof(float)));
+                            if (rows == 0) rows = 1;
+                        }
+
+                        // We only process up to 128 rows for the diagnostic stub so we don't blow up the terminal output
+                        rows = Math.Min(rows, 16);
+                        long readLength = rows * cols * sizeof(float);
+
+                        void* hostWeights = System.Runtime.InteropServices.NativeMemory.Alloc((nuint)readLength);
+                        float* hostInput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(cols * sizeof(float)));
+                        float* hostOutput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(rows * sizeof(float)));
+                        
+                        // Fake input embedding
+                        for (int i = 0; i < cols; i++) hostInput[i] = (float)Math.Sin(i);
+
                         try 
                         {
                             using var reader = new FractalStreamer.TensorReader();
-                            reader.ReadInto(modelPath, offset, (int)readLength, buffer);
+                            reader.ReadInto(modelPath, offset, (int)readLength, hostWeights);
 
-                            float* floats = (float*)buffer;
-                            int floatCount = (int)readLength / sizeof(float);
-                            float sum = 0;
-                            for (int i = 0; i < Math.Min(floatCount, 10); i++) 
+                            // --- CUDA PTX EXECUTION ---
+                            FractalBridge.CudaNative.Init(0);
+                            FractalBridge.CudaNative.DeviceGet(out int device, 0);
+                            FractalBridge.CudaNative.CtxCreate(out IntPtr ctx, 0, device);
+                            try 
                             {
-                                sum += floats[i];
+                                FractalBridge.CudaNative.StreamCreate(out IntPtr hStream, 0);
+                                IntPtr ptxPtr = System.Runtime.InteropServices.Marshal.StringToHGlobalAnsi(PtxKernels.Sgemv);
+                                FractalBridge.CudaNative.ModuleLoadData(out IntPtr module, ptxPtr);
+                                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptxPtr);
+
+                                FractalBridge.CudaNative.ModuleGetFunction(out IntPtr hfunc, module, "gemv");
+
+                                FractalBridge.CudaNative.MemAlloc(out IntPtr dW, (nuint)readLength);
+                                FractalBridge.CudaNative.MemAlloc(out IntPtr dX, (nuint)(cols * sizeof(float)));
+                                FractalBridge.CudaNative.MemAlloc(out IntPtr dY, (nuint)(rows * sizeof(float)));
+
+                                FractalBridge.CudaNative.MemcpyHtoDAsync(dW, (IntPtr)hostWeights, (nuint)readLength, hStream);
+                                FractalBridge.CudaNative.MemcpyHtoDAsync(dX, (IntPtr)hostInput, (nuint)(cols * sizeof(float)), hStream);
+
+                                void*[] args = new void*[] { &dW, &dX, &dY, &rows, &cols };
+                                fixed (void** pArgs = args)
+                                {
+                                    uint blockDimX = 256;
+                                    uint gridDimX = (rows + blockDimX - 1) / blockDimX;
+                                    FractalBridge.CudaNative.LaunchKernel(hfunc, gridDimX, 1, 1, blockDimX, 1, 1, 0, hStream, (IntPtr)pArgs, IntPtr.Zero);
+                                }
+
+                                FractalBridge.CudaNative.MemcpyDtoHAsync((IntPtr)hostOutput, dY, (nuint)(rows * sizeof(float)), hStream);
+                                FractalBridge.CudaNative.StreamSynchronize(hStream);
+
+                                FractalBridge.CudaNative.MemFree(dW);
+                                FractalBridge.CudaNative.MemFree(dX);
+                                FractalBridge.CudaNative.MemFree(dY);
+                                FractalBridge.CudaNative.cuStreamDestroy(hStream);
+
+                                outputMessage += " GPU Logits:";
+                                for (int i = 0; i < Math.Min(rows, 10); i++) 
+                                {
+                                    outputMessage += $" {hostOutput[i]:F4}";
+                                }
                             }
-                            outputMessage += $" Checksum: {sum:F4}";
+                            finally
+                            {
+                                FractalBridge.CudaNative.cuCtxDestroy(ctx);
+                            }
                         }
                         catch (Exception ex)
                         {
-                            outputMessage += $" Read error: {ex.Message}";
+                            outputMessage += $" Compute error: {ex.Message}";
                         }
                         finally 
                         {
-                            System.Runtime.InteropServices.NativeMemory.Free(buffer);
+                            System.Runtime.InteropServices.NativeMemory.Free(hostWeights);
+                            System.Runtime.InteropServices.NativeMemory.Free(hostInput);
+                            System.Runtime.InteropServices.NativeMemory.Free(hostOutput);
                         }
                     }
                 }

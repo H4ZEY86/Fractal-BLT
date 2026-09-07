@@ -22,11 +22,11 @@ jobs:
       run: dotnet restore
 
     - name: Run Tests
-      # The CUDA E2E test dynamically skips itself if no CUDA device is present
+    
       run: dotnet test --no-restore --verbosity normal
 
     - name: Build FractalCore (Release)
-      # Ensures NativeAOT constraints are preserved
+      
       run: dotnet build FractalCore/FractalCore.csproj -c Release --no-restore
 
     - name: Build FractalServe (Release)

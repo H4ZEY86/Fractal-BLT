@@ -43,6 +43,10 @@ public static partial class CudaNative
     public static void MemFree(IntPtr dptr) => Check(cuMemFree(dptr));
     public static void StreamSynchronize(IntPtr hStream) => Check(cuStreamSynchronize(hStream));
     public static void MemcpyHtoDAsync(IntPtr dstDevice, IntPtr srcHost, nuint byteCount, IntPtr hStream) => Check(cuMemcpyHtoDAsync(dstDevice, srcHost, byteCount, hStream));
+    public static void MemcpyDtoHAsync(IntPtr dstHost, IntPtr srcDevice, nuint byteCount, IntPtr hStream) => Check(cuMemcpyDtoHAsync(dstHost, srcDevice, byteCount, hStream));
+    public static void ModuleLoadData(out IntPtr module, IntPtr image) => Check(cuModuleLoadData(out module, image));
+    public static void ModuleGetFunction(out IntPtr hfunc, IntPtr hmod, string name) => Check(cuModuleGetFunction(out hfunc, hmod, name));
+    public static void LaunchKernel(IntPtr f, uint gridDimX, uint gridDimY, uint gridDimZ, uint blockDimX, uint blockDimY, uint blockDimZ, uint sharedMemBytes, IntPtr hStream, IntPtr kernelParams, IntPtr extra) => Check(cuLaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams, extra));
 
     [LibraryImport(CudaLib)]
     public static partial CUresult cuMemAlloc(out IntPtr dptr, nuint bytesize);
@@ -70,6 +74,18 @@ public static partial class CudaNative
 
     [LibraryImport(CudaLib)]
     public static partial CUresult cuMemcpyHtoDAsync(nint dstDevice, nint srcHost, nuint byteCount, nint hStream);
+
+    [LibraryImport(CudaLib)]
+    public static partial CUresult cuMemcpyDtoHAsync(nint dstHost, nint srcDevice, nuint byteCount, nint hStream);
+
+    [LibraryImport(CudaLib)]
+    public static partial CUresult cuModuleLoadData(out nint module, nint image);
+
+    [LibraryImport(CudaLib, StringMarshalling = StringMarshalling.Utf8)]
+    public static partial CUresult cuModuleGetFunction(out nint hfunc, nint hmod, string name);
+
+    [LibraryImport(CudaLib)]
+    public static partial CUresult cuLaunchKernel(nint f, uint gridDimX, uint gridDimY, uint gridDimZ, uint blockDimX, uint blockDimY, uint blockDimZ, uint sharedMemBytes, nint hStream, nint kernelParams, nint extra);
 
     [LibraryImport(CudaLib)]
     public static partial CUresult cuGetErrorString(CUresult error, out nint pStr);
