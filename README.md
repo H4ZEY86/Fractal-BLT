@@ -1,11 +1,15 @@
 <div align="center">
+
 # FRACTAL-BLT
+
 ### *Disk-Native, Zero-Allocation Mixture-of-Experts (MoE) Inference Runtime in .NET 10 NativeAOT*
+
 [![.NET 10 NativeAOT](https://img.shields.io/badge/.NET_10-NativeAOT-512BD4?style=for-the-badge&logo=.net&logoColor=white)](https://dotnet.microsoft.com/)
 [![Zero-Allocation](https://img.shields.io/badge/Memory-Zero_Allocation-FF0055?style=for-the-badge&logo=probot&logoColor=white)](https://github.com/H4ZEY86/Fractal-BLT)
 [![NVMe-to-GPU DMA](https://img.shields.io/badge/Hardware-NVMe_Direct_DMA-00F0FF?style=for-the-badge&logo=nvidia&logoColor=black)](https://developer.nvidia.com/cuda-driver-api)
 [![RTX 5070 Ti Optimized](https://img.shields.io/badge/Target-RTX_5070_Ti-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://www.nvidia.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow.svg?style=for-the-badge)](LICENSE)
+
 </div>
 
 ---
