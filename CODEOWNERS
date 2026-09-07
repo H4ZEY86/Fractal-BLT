@@ -1,7 +1,15 @@
 # Global Owners
-* @H4ZEY86
+* @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
 
 # Component Specific
-/FractalBridge/     @H4ZEY86
-/FractalCore/       @H4ZEY86
-/docs/              @H4ZEY86
+/FractalBridge/     @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/FractalCore/       @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/FractalServe/       @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/FractalStreamer/       @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/FractalGnnRouter/       @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/FractalBltEncoder/       @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/docs/              @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/src/              @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+/tests/              @H4ZEY86, Ctrl_Alt_Haze, Christopher Dyer
+
+
