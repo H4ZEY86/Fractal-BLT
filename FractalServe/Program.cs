@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-
+using System.Collections.Generic;
 namespace FractalServe;
 
 public class Program
@@ -71,15 +71,20 @@ public class Program
             }
 
             // Non-streaming fallback
-            return Results.Ok(new 
+            var response = new ChatCompletionResponse
+{
+    Choices = new List<ChatCompletionChoice>
+    {
+        new ChatCompletionChoice
+        {
+            Message = new ChatCompletionMessage
             {
-                choices = new[] 
-                {
-                    new { message = new { role = "assistant", content = "Fractal Pipeline Simulated Output." } }
-                }
-            });
-        });
-
-        app.Run();
+                Role = "assistant",
+                Content = responseText.Trim()
+            }
+        }
+    }
+};
+return Results.Json(response, FractalJsonContext.Default.ChatCompletionResponse);
     }
 }

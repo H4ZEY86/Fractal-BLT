@@ -3,8 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace FractalServe;
 
-// Strictly typed structs for zero-allocation JSON parsing via source generators
-
 public struct ChatCompletionMessage
 {
     [JsonPropertyName("role")]
@@ -26,9 +24,24 @@ public struct ChatCompletionRequest
     public bool? Stream { get; set; }
 }
 
-// Minimal JSON context to trigger NativeAOT source generation
+public struct ChatCompletionChoice
+{
+    [JsonPropertyName("message")]
+    public ChatCompletionMessage Message { get; set; }
+}
+
+public struct ChatCompletionResponse
+{
+    [JsonPropertyName("choices")]
+    public List<ChatCompletionChoice> Choices { get; set; }
+}
+
 [JsonSerializable(typeof(ChatCompletionRequest))]
 [JsonSerializable(typeof(ChatCompletionMessage))]
+[JsonSerializable(typeof(ChatCompletionChoice))]
+[JsonSerializable(typeof(ChatCompletionResponse))]
+[JsonSerializable(typeof(List<ChatCompletionChoice>))]
+[JsonSerializable(typeof(List<ChatCompletionMessage>))]
 public partial class FractalJsonContext : JsonSerializerContext
 {
 }
