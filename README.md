@@ -93,7 +93,7 @@ curl -N -X POST http://localhost:8080/v1/chat/completions \
 
 ## 💖 Support the Project
 
-Fractal-BLT and the Opure Sovereign Enclave are entirely open-source. If you use this runtime in production or want to help cover the costs of CI/CD workflows, GPU Github Runners, and continued maintenance, please consider donating:
+**Fractal-BLT** is entirely open-source. If you use this runtime in production or want to help cover the costs of CI/CD workflows, GPU Github Runners, and continued maintenance, please consider donating. *(Note: The **Opure Sovereign Enclave (OZTAE)** is a separate, proprietary commercial product available for enterprise licensing).*
 
 **[Support Fractal-BLT via PayPal](https://www.paypal.com/paypalme/CDyer1986)**
 
