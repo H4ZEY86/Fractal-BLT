@@ -4,270 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FRACTAL-BLT // Zero-Allocation .NET 10 MoE Runtime</title>
-    <style>
-        :root {
-            --bg-color: #030305;
-            --panel-bg: rgba(10, 10, 15, 0.85);
-            --border-color: #1a1a2e;
-            --neon-magenta: #ff0055;
-            --neon-cyan: #00f0ff;
-            --neon-gold: #ffd700;
-            --neon-green: #00ff66;
-            --text-main: #c0c0d0;
-            --text-bright: #ffffff;
-            --font-mono: 'Courier New', Courier, monospace;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: var(--font-mono);
-            line-height: 1.6;
-            padding: 20px;
-            overflow-x: hidden;
-            /* Cyber grid background */
-            background-image: 
-                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
-            position: relative;
-        }
-
-        /* CRT Scanline Overlay */
-        body::before {
-            content: " ";
-            display: block;
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 999;
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-        }
-
-        header {
-            border-bottom: 2px solid var(--neon-magenta);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            position: relative;
-        }
-
-        /* Glitch Title Effect */
-        .glitch-wrapper {
-            position: relative;
-        }
-
-        h1 {
-            color: var(--text-bright);
-            font-size: 3rem;
-            letter-spacing: 4px;
-            text-shadow: 0 0 10px rgba(255, 0, 85, 0.6);
-            position: relative;
-            display: inline-block;
-        }
-
-        h1 span { color: var(--neon-magenta); }
-
-        .glitch {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            color: var(--text-bright);
-            background: var(--bg-color);
-            overflow: hidden;
-            clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
-            animation: glitch-anim 2.5s infinite linear alternate-reverse;
-        }
-
-        .glitch span { color: var(--neon-cyan); }
-
-        @keyframes glitch-anim {
-            0% { clip-path: polygon(0 2%, 100% 2%, 100% 5%, 0 5%); transform: translate(-2px, 2px); }
-            20% { clip-path: polygon(0 15%, 100% 15%, 100% 15%, 0 15%); transform: translate(2px, -2px); }
-            40% { clip-path: polygon(0 10%, 100% 10%, 100% 20%, 0 20%); transform: translate(-2px, 2px); }
-            60% { clip-path: polygon(0 40%, 100% 40%, 100% 45%, 0 45%); transform: translate(2px, -2px); }
-            80% { clip-path: polygon(0 30%, 100% 30%, 100% 35%, 0 35%); transform: translate(-2px, 2px); }
-            100% { clip-path: polygon(0 20%, 100% 20%, 100% 30%, 0 30%); transform: translate(2px, -2px); }
-        }
-
-        .subtitle {
-            color: var(--neon-cyan);
-            font-size: 1rem;
-            letter-spacing: 2px;
-            margin-top: 5px;
-            text-shadow: 0 0 5px var(--neon-cyan);
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 2fr 1.2fr;
-            gap: 25px;
-            position: relative;
-            z-index: 10;
-        }
-
-        @media (max-width: 1024px) { .container { grid-template-columns: 1fr; } }
-
-        .panel {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-left: 4px solid var(--neon-cyan);
-            border-radius: 2px;
-            padding: 25px;
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.05), inset 0 0 20px rgba(0,0,0,0.8);
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(5px);
-        }
-
-        .panel:hover {
-            border-left-color: var(--neon-magenta);
-            box-shadow: 0 0 25px rgba(255, 0, 85, 0.1), inset 0 0 20px rgba(0,0,0,0.8);
-            transition: all 0.3s ease;
-        }
-
-        .panel h2 {
-            color: var(--neon-cyan);
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            border-bottom: 1px dashed var(--border-color);
-            padding-bottom: 8px;
-            letter-spacing: 2px;
-            text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);
-        }
-
-        /* Terminal Window */
-        .terminal {
-            background-color: #020205;
-            border: 1px solid var(--border-color);
-            border-top: 3px solid var(--neon-magenta);
-            height: 400px;
-            display: flex;
-            flex-direction: column;
-            grid-column: span 2;
-        }
-        
-        @media (max-width: 1024px) { .terminal { grid-column: span 1; } }
-
-        .terminal-header {
-            background-color: #0a0a0f;
-            padding: 10px 15px;
-            font-size: 0.85rem;
-            color: var(--text-main);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .terminal-body {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            font-size: 0.95rem;
-            color: var(--neon-green);
-            text-shadow: 0 0 3px rgba(0, 255, 102, 0.4);
-        }
-
-        .terminal-input-line {
-            display: flex;
-            padding: 15px;
-            background-color: rgba(0,0,0,0.5);
-            border-top: 1px dashed var(--border-color);
-        }
-
-        .terminal-input-line span {
-            color: var(--neon-magenta);
-            margin-right: 15px;
-            font-weight: bold;
-        }
-
-        .terminal-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: var(--text-bright);
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            outline: none;
-            text-shadow: 0 0 5px rgba(255,255,255,0.3);
-        }
-
-        /* Metrics Table */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(26, 26, 46, 0.5); font-size: 0.9rem; }
-        th { color: var(--text-main); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
-        td:last-child { text-align: right; color: var(--neon-cyan); font-weight: bold; }
-        
-        .pulse { animation: pulse-anim 2s infinite; }
-        @keyframes pulse-anim { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-
-        /* The Python Dunk Panel */
-        .python-dunk {
-            border-left-color: var(--neon-gold) !important;
-        }
-        
-        .python-dunk h2 {
-            color: var(--neon-gold) !important;
-            text-shadow: 0 0 5px rgba(255, 215, 0, 0.4) !important;
-        }
-
-        .comparison {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .vs-bar {
-            width: 100%;
-            background: #111;
-            height: 24px;
-            position: relative;
-            border: 1px solid #333;
-        }
-
-        .vs-fill.blt { background: var(--neon-cyan); width: 2%; box-shadow: 0 0 10px var(--neon-cyan); }
-        .vs-fill.python { background: #555; width: 100%; }
-        
-        .vs-label {
-            position: absolute;
-            top: 2px;
-            font-size: 0.75rem;
-            font-weight: bold;
-            color: #fff;
-            padding: 0 10px;
-        }
-
-        .error-log {
-            background: rgba(255, 0, 0, 0.1);
-            border: 1px solid #500;
-            padding: 10px;
-            color: #ff3333;
-            font-size: 0.8rem;
-            margin-top: 10px;
-            font-family: monospace;
-        }
-
-        /* Q&A Accordion */
-        .qa-item { margin-bottom: 15px; }
-        .qa-q { color: var(--text-bright); font-weight: bold; font-size: 0.95rem; margin-bottom: 6px; }
-        .qa-a { font-size: 0.85rem; color: #a0a0b0; padding-left: 12px; border-left: 2px solid var(--neon-magenta); }
-
-        footer { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px dashed var(--border-color); font-size: 0.8rem; color: #505060; letter-spacing: 2px; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <nav>
+        <a href="#home">TERMINAL</a>
+        <a href="#architecture">ARCHITECTURE</a>
+        <a href="#benchmarks">BENCHMARKS</a>
+        <a href="#api">API EXPLORER</a>
+    </nav>
+
     <header>
         <div class="glitch-wrapper">
             <h1>FRACTAL<span>-BLT</span></h1>
@@ -280,138 +26,178 @@
     </header>
 
     <div class="container">
-        <!-- Interactive Terminal Panel -->
-        <div class="panel terminal">
-            <div class="terminal-header">
-                <span>CLI SIMULATOR // fractal-core.exe</span>
-                <span>ARCH: x64-native // THREADS: 1 // GPU: RTX 5070 Ti</span>
+        
+        <!-- ============================== -->
+        <!-- VIEW 1: HOME / TERMINAL        -->
+        <!-- ============================== -->
+        <section id="view-home" class="view-section">
+            <!-- Interactive Terminal Panel -->
+            <div class="panel terminal">
+                <div class="terminal-header">
+                    <span>CLI SIMULATOR // fractal-core.exe</span>
+                    <span>ARCH: x64-native // THREADS: 1 // GPU: RTX 5070 Ti</span>
+                </div>
+                <div class="terminal-body" id="term-output">
+                    <span style="color: var(--text-main)">FRACTAL-CORE v2.0.0 [NativeAOT Release Build]</span><br>
+                    <span style="color: var(--text-main)">Initializing zero-allocation memory pools... [OK]</span><br>
+                    <span style="color: var(--text-main)">Type 'help' to inspect available runtime commands.</span><br>
+                    <br>>
+                </div>
+                <div class="terminal-input-line">
+                    <span>root@fractal:~#</span>
+                    <input type="text" class="terminal-input" id="term-input" placeholder="Enter command (bench, route, python, help)..." autocomplete="off" autofocus>
+                </div>
             </div>
-            <div class="terminal-body" id="term-output">
-                <span style="color: var(--text-main)">FRACTAL-CORE v2.0.0 [NativeAOT Release Build]</span><br>
-                <span style="color: var(--text-main)">Initializing zero-allocation memory pools... [OK]</span><br>
-                <span style="color: var(--text-main)">Type 'help' to inspect available runtime commands.</span><br>
-                <br>>
-            </div>
-            <div class="terminal-input-line">
-                <span>root@fractal:~#</span>
-                <input type="text" class="terminal-input" id="term-input" placeholder="Enter command (bench, route, python, help)..." autocomplete="off" autofocus>
-            </div>
-        </div>
 
-        <!-- Telemetry Metrics Panel -->
-        <div class="panel">
-            <h2>REAL-TIME TELEMETRY</h2>
-            <table>
-                <tr><th>Component</th><th>Status / Metric</th></tr>
-                <tr><td>Garbage Collector</td><td><span style="color: var(--text-main);">DORMANT</span></td></tr>
-                <tr><td>Hot-Path Allocations</td><td><span class="pulse">0 BYTES</span></td></tr>
-                <tr><td>Memory Footprint</td><td>10.06 MB (STATIC)</td></tr>
-                <tr><td>BLT Entropy Encoder</td><td>45.05 MB/s</td></tr>
-                <tr><td>GNN Adjacency Router</td><td>541.3 µs / Matrix</td></tr>
-                <tr><td>PCIe DMA Transfer</td><td>Direct O_DIRECT</td></tr>
-            </table>
-        </div>
+            <!-- Telemetry Metrics Panel -->
+            <div class="panel">
+                <h2>REAL-TIME TELEMETRY</h2>
+                <table>
+                    <tr><th>Component</th><th>Status / Metric</th></tr>
+                    <tr><td>Garbage Collector</td><td><span style="color: var(--text-main);">DORMANT</span></td></tr>
+                    <tr><td>Hot-Path Allocations</td><td><span class="pulse">0 BYTES</span></td></tr>
+                    <tr><td>Memory Footprint</td><td>10.06 MB (STATIC)</td></tr>
+                    <tr><td>BLT Entropy Encoder</td><td>45.05 MB/s</td></tr>
+                    <tr><td>GNN Adjacency Router</td><td>541.3 µs / Matrix</td></tr>
+                    <tr><td>PCIe DMA Transfer</td><td>Direct O_DIRECT</td></tr>
+                </table>
+            </div>
 
-        <!-- The Python Dunk Panel -->
-        <div class="panel python-dunk">
-            <h2>FRACTAL-BLT vs. PYTHON/PYTORCH</h2>
-            <div class="comparison">
-                <div>
-                    <div style="font-size: 0.8rem; margin-bottom: 5px; color: var(--text-main);">STARTUP MEMORY OVERHEAD</div>
-                    <div class="vs-bar"><div class="vs-fill python"></div><span class="vs-label">PyTorch: ~2.4 GB</span></div>
-                    <div class="vs-bar" style="margin-top: 5px; background: transparent; border: 1px solid var(--neon-cyan);"><div class="vs-fill blt" style="height: 100%;"></div><span class="vs-label" style="color: var(--neon-cyan);">Fractal-BLT: 10.06 MB</span></div>
-                </div>
-                <div>
-                    <div style="font-size: 0.8rem; margin-bottom: 5px; color: var(--text-main);">GIL / THREADING</div>
-                    <div style="color: var(--neon-magenta); font-size: 0.85rem; font-weight: bold;">[!] PYTHON GIL BLOCKED</div>
-                    <div style="color: var(--neon-cyan); font-size: 0.85rem; font-weight: bold;">[✓] FRACTAL: LOCK-FREE / TRUE CONCURRENCY</div>
-                </div>
-                <div class="error-log">
-                    Traceback (most recent call last):<br>
-                    &nbsp;&nbsp;File "train.py", line 42, in &lt;module&gt;<br>
-                    RuntimeError: CUDA out of memory. Tried to allocate 1.24 GiB. Python interpreter overhead detected.
+            <!-- The Python Dunk Panel -->
+            <div class="panel python-dunk">
+                <h2>FRACTAL-BLT vs. PYTHON/PYTORCH</h2>
+                <div class="comparison">
+                    <div>
+                        <div style="font-size: 0.8rem; margin-bottom: 5px; color: var(--text-main);">STARTUP MEMORY OVERHEAD</div>
+                        <div class="vs-bar"><div class="vs-fill python"></div><span class="vs-label">PyTorch: ~2.4 GB</span></div>
+                        <div class="vs-bar" style="margin-top: 5px; background: transparent; border: 1px solid var(--neon-cyan);"><div class="vs-fill blt" style="height: 100%;"></div><span class="vs-label" style="color: var(--neon-cyan);">Fractal-BLT: 10.06 MB</span></div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8rem; margin-bottom: 5px; color: var(--text-main);">GIL / THREADING</div>
+                        <div style="color: var(--neon-magenta); font-size: 0.85rem; font-weight: bold;">[!] PYTHON GIL BLOCKED</div>
+                        <div style="color: var(--neon-cyan); font-size: 0.85rem; font-weight: bold;">[✓] FRACTAL: LOCK-FREE / TRUE CONCURRENCY</div>
+                    </div>
+                    <div class="error-log">
+                        Traceback (most recent call last):<br>
+                        &nbsp;&nbsp;File "train.py", line 42, in &lt;module&gt;<br>
+                        RuntimeError: CUDA out of memory. Tried to allocate 1.24 GiB. Python interpreter overhead detected.
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Architecture Q&A Panel -->
-        <div class="panel" style="grid-column: span 2;">
-            <h2>ARCHITECTURE SPECS</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div class="qa-item">
-                    <div class="qa-q">HOW DOES FRACTAL-BLT ELIMINATE HEAP ALLOCATIONS?</div>
-                    <div class="qa-a">By aggressively utilizing `ReadOnlySpan<T>`, `stackalloc` unmanaged stack buffers, and C# 12 `[InlineArray]` semantics. We do not use the `new` keyword on the hot path. The Garbage Collector remains completely asleep during inference.</div>
+        <!-- ============================== -->
+        <!-- VIEW 2: ARCHITECTURE           -->
+        <!-- ============================== -->
+        <section id="view-architecture" class="view-section">
+            <div class="panel">
+                <h2>PIPELINE ARCHITECTURE (INTERACTIVE)</h2>
+                <p style="color: var(--text-main);">Click on a component in the data path to inspect its implementation details.</p>
+                
+                <div class="arch-flow">
+                    <div class="arch-node" data-target="nvme">NVMe Drive</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" data-target="blt">BLT Encoder</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" data-target="gnn">GNN Router</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" data-target="dma">PCIe DMA</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" data-target="ptx">RTX GPU</div>
                 </div>
-                <div class="qa-item">
-                    <div class="qa-q">WHY RAW PTX INSTEAD OF CUBLAS/TORCH?</div>
-                    <div class="qa-a">Embedding JIT-compiled PTX assembly as string literals within the C# binary guarantees a zero-dependency, self-contained standalone executable. We interact exclusively with the CUDA Driver API (`cuLaunchKernel`), skipping massive C++ abstraction bloat.</div>
-                </div>
-                <div class="qa-item">
-                    <div class="qa-q">HOW DOES BLT REPLACE TOKENIZERS?</div>
-                    <div class="qa-a">Tokenizers are rigid and vocabulary-bound. Fractal-BLT computes true mathematical Shannon Entropy ($H = - \sum p_i \log_2 p_i$) over sliding byte windows natively. When entropy peaks, semantic boundaries are drawn on the fly.</div>
-                </div>
-                <div class="qa-item">
-                    <div class="qa-q">HOW IS NVME LATENCY HIDDEN?</div>
-                    <div class="qa-a">Through unbuffered direct I/O (`O_DIRECT` / `FILE_FLAG_NO_BUFFERING`) mapped to pinned host memory via `cuMemHostRegister`. We DMA stream experts directly over PCIe while the previous tensor computes.</div>
+
+                <div id="arch-details-content" class="arch-details">
+                    <h3 style="color: var(--text-main);">Select a module above.</h3>
+                    <p style="color: var(--text-main);">Information will appear here.</p>
                 </div>
             </div>
-        </div>
+
+            <div class="panel">
+                <h2>ARCHITECTURE Q&A</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="qa-item">
+                        <div class="qa-q">HOW DOES FRACTAL-BLT ELIMINATE HEAP ALLOCATIONS?</div>
+                        <div class="qa-a">By aggressively utilizing `ReadOnlySpan<T>`, `stackalloc` unmanaged stack buffers, and C# 12 `[InlineArray]` semantics. We do not use the `new` keyword on the hot path. The Garbage Collector remains completely asleep during inference.</div>
+                    </div>
+                    <div class="qa-item">
+                        <div class="qa-q">WHY RAW PTX INSTEAD OF CUBLAS/TORCH?</div>
+                        <div class="qa-a">Embedding JIT-compiled PTX assembly as string literals within the C# binary guarantees a zero-dependency, self-contained standalone executable. We interact exclusively with the CUDA Driver API (`cuLaunchKernel`), skipping massive C++ abstraction bloat.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================== -->
+        <!-- VIEW 3: BENCHMARKS             -->
+        <!-- ============================== -->
+        <section id="view-benchmarks" class="view-section">
+            <div class="panel">
+                <h2>PATCHING THROUGHPUT (MB/s)</h2>
+                <button id="btn-run-bench" class="btn">RUN BENCHMARK</button>
+                <div class="chart-container">
+                    <div class="chart-bar-wrapper">
+                        <div id="bar-py" class="chart-bar py" style="height: 0%;">
+                            <div id="val-py" class="chart-val">0 MB/s</div>
+                        </div>
+                        <div class="chart-label">Python (BPE)</div>
+                    </div>
+                    <div class="chart-bar-wrapper">
+                        <div id="bar-blt" class="chart-bar blt" style="height: 0%;">
+                            <div id="val-blt" class="chart-val">0 MB/s</div>
+                        </div>
+                        <div class="chart-label">Fractal-BLT (Entropy)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>SYSTEM PROFILES</h2>
+                <table>
+                    <tr><th>Metric</th><th>Fractal-BLT</th><th>PyTorch Baseline</th></tr>
+                    <tr><td>Startup Memory</td><td>10.06 MB</td><td>2.4 GB+</td></tr>
+                    <tr><td>JIT Time</td><td>~20ms (NativeAOT)</td><td>Seconds (PT2 compile)</td></tr>
+                    <tr><td>Thread Concurrency</td><td>Lock-Free</td><td>GIL Blocked</td></tr>
+                    <tr><td>Routing Strategy</td><td>1-Hop Stackalloc GCN</td><td>VRAM-bound MLP</td></tr>
+                    <tr><td>Binary Size</td><td>Self-Contained (4 MB)</td><td>Massive Wheel (GBs)</td></tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ============================== -->
+        <!-- VIEW 4: API EXPLORER           -->
+        <!-- ============================== -->
+        <section id="view-api" class="view-section">
+            <div class="panel">
+                <h2>OPENAI-COMPATIBLE SSE ENDPOINT</h2>
+                <p style="color:var(--text-main); margin-bottom:15px;">Simulate a streaming response from the <code>/v1/chat/completions</code> endpoint.</p>
+                <button id="btn-api" class="btn">POST /v1/chat/completions</button>
+                <br><br>
+                <div id="api-output" class="api-box">
+// Waiting for request...
+                </div>
+            </div>
+            <div class="panel">
+                <h2>CURL REQUEST</h2>
+                <div class="api-box" style="min-height: 100px; color: var(--neon-cyan);">
+curl -N -X POST http://localhost:5000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "fractal-moe-64x",
+    "messages": [
+      {"role": "user", "content": "Compute"}
+    ],
+    "stream": true
+  }'
+                </div>
+            </div>
+        </section>
+
     </div>
 
     <footer>
         FRACTAL-BLT // ENGINEERED FOR ZERO-LATENCY SYSTEMS // APACHE 2.0 LICENSE
     </footer>
 
-    <script>
-        const termOutput = document.getElementById('term-output');
-        const termInput = document.getElementById('term-input');
-
-        const responses = {
-            'help': "Commands:\n  help    - Display commands\n  bench   - Execute 10MB telemetry gauntlet\n  route   - Inspect GNN matrix calculations\n  python  - Attempt to run this in Python\n  status  - Print system health\n  clear   - Clear terminal",
-            'bench': "[+] Allocating 0 bytes on managed heap...\n[+] Initializing 10MB byte stream from NVMe...\n[+] Executing Shannon Entropy Patcher (327,680 patches generated).\n[+] cuLaunchKernel SGEMV PTX across RTX 5070 Ti...\n[SUCCESS] Gauntlet completed.\n    -> Throughput: 45.05 MB/s\n    -> GC Collections: 0\n    -> Heap Size: 10.06 MB",
-            'route': "[+] Constructing 8x8 RBF similarity matrix on stack...\n[+] Convolving 1-hop GCN message-passing weights...\n[+] Executing Linear Projection...\n[SUCCESS] Expert ID #42 selected (Weight: 0.9412).",
-            'status': "Host OS: Omarchy Linux / Windows 11 NativeAOT\nRuntime: .NET 10.0 (Release)\nGC State: DORMANT. 0 Gen0/Gen1/Gen2 collections.\nMemory Footprint: 10.06 MB.",
-            'python': "<span style='color:#ff3333'>[FATAL] Executing Python...</span>\n<span style='color:#ff3333'>Loading torch... (Waiting 4.2 seconds)</span>\n<span style='color:#ff3333'>Allocating 3.5GB to VRAM...</span>\n<span style='color:#ff3333'>RuntimeError: CUDA out of memory.</span>\n<span style='color:#ff3333'>GIL deadlock detected.</span>\n<span style='color:var(--neon-cyan)'>[!] Why are you doing this to yourself? Use Fractal-BLT.</span>",
-            'clear': ""
-        };
-
-        async function typeText(text, element) {
-            const lines = text.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-                element.innerHTML += lines[i] + "<br>";
-                element.scrollTop = element.scrollHeight;
-                await new Promise(r => setTimeout(r, 40));
-            }
-        }
-
-        termInput.addEventListener('keydown', async function(e) {
-            if (e.key === 'Enter') {
-                const cmd = termInput.value.trim().toLowerCase();
-                termInput.value = '';
-                
-                if (cmd === 'clear') {
-                    termOutput.innerHTML = '<br>> ';
-                    return;
-                }
-                
-                termOutput.innerHTML += `<br><span style="color:var(--text-bright)">> ${cmd}</span><br>`;
-                
-                const response = responses[cmd] || `Command not recognized: '${cmd}'. Type 'help' for options.`;
-                
-                if (cmd === 'python' || cmd === 'bench' || cmd === 'route') {
-                    // Disable input during typing
-                    termInput.disabled = true;
-                    await typeText(response, termOutput);
-                    termOutput.innerHTML += "<br>> ";
-                    termInput.disabled = false;
-                    termInput.focus();
-                } else {
-                    termOutput.innerHTML += response.replace(/\n/g, '<br>') + "<br><br>> ";
-                }
-                
-                termOutput.scrollTop = termOutput.scrollHeight;
-            }
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
