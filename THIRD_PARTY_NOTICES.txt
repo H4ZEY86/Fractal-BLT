@@ -1,0 +1,17 @@
+THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+Do Not Translate or Localize
+
+This project incorporates components from the projects listed below. The original copyright notices and the licenses under which Microsoft received such components are set forth below.
+
+---
+
+1. .NET 10 (Microsoft Corporation)
+License: MIT License
+https://github.com/dotnet/runtime/blob/main/LICENSE.TXT
+
+2. NVIDIA CUDA Toolkit (NVIDIA Corporation)
+License: NVIDIA Software License Agreement
+https://docs.nvidia.com/cuda/eula/index.html
+
+---
+Fractal-BLT itself is licensed under the Apache 2.0 License.
