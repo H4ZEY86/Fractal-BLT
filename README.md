@@ -28,8 +28,23 @@ dotnet publish FractalCore/FractalCore.csproj -c Release -r linux-x64
 ```
 *(Swap `linux-x64` for `win-x64` if benchmarking on Windows.)*
 
-### 2. Run the Hardware Saturation Benchmark
-Execute the compiled binary to generate a synthetic 1GB NVMe test file and run the zero-allocation Gauntlet.
+## Usage
+
+### 1. Minimal Engine Execution (Diagnostic Stub)
+For testing the zero-allocation routing and NVMe DMA streaming architecture:
+1. Ensure the `FRACTAL_MODEL` environment variable is set to a valid `.safetensors` model file (e.g., `tiny-llama.safetensors`).
+2. Boot the API: `dotnet run --project FractalServe -c Release`
+3. Execute a completion request:
+```bash
+curl -X POST http://localhost:5000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "fractal-moe-64x", "messages": [{"role": "user", "content": "Hello world"}], "stream": true}'
+```
+
+> [!NOTE]
+> The current token generation is in **Diagnostic Mode**. The HTTP endpoint will successfully evaluate the incoming text via `BltEncoder`, route the patches via `GnnRouter`, map the request to an expert tensor, read the physical tensor bytes directly from disk, and compute a checksum. The output SSE tokens will return simulated data (tensor name and checksum) rather than a true CUDA matrix-multiplied autoregressive sequence.
+
+### 2. Standalone Verification Gauntlet.
 ```bash
 ./FractalCore/bin/Release/net10.0/linux-x64/publish/FractalCore
 ```

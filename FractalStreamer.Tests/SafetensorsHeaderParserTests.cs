@@ -39,7 +39,7 @@ public class SafetensorsHeaderParserTests : IDisposable
 
         bool result = SafetensorsHeaderParser.TryGetTensorOffsets(_tempFilePath, "tensor1", out long start, out long length);
         Assert.True(result);
-        Assert.Equal(100, start);
+        Assert.Equal(8 + headerLength + 100, start);
         Assert.Equal(100, length);
     }
 

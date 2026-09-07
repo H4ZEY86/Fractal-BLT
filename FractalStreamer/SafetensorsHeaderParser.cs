@@ -61,7 +61,7 @@ public static class SafetensorsHeaderParser
                                 reader.Read(); // move to END number
                                 long endOffset = reader.GetInt64();
 
-                                offset = startOffset;
+                                offset = 8 + headerLength + startOffset;
                                 length = endOffset - startOffset;
                                 return true;
                             }
