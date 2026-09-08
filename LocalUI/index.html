@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FRACTAL-BLT // Local UI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div>
+            <h1>FRACTAL<span>-BLT</span> // LOCAL CHAT</h1>
+        </div>
+        <div class="status">[ API: CONNECTED ]</div>
+    </header>
+
+    <div class="chat-container" id="chatContainer">
+        <div class="message assistant">
+            <div class="role">SYS.PROMPT</div>
+            <div class="content">Fractal-BLT Local Chat initialized. Ready to interface with NativeAOT model via FractalServe.</div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <textarea id="promptInput" placeholder="Enter sequence... (Shift+Enter for new line)" rows="1"></textarea>
+        <button id="sendBtn">EXECUTE</button>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

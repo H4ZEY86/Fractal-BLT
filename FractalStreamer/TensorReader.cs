@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
+using System.IO.MemoryMappedFiles;
 
 namespace FractalStreamer;
 
@@ -14,6 +15,7 @@ public unsafe class TensorReader : ITensorStreamer
     private void* _buffer;
     private long _bufferCapacity;
     private SafeFileHandle? _handle;
+    private MemoryMappedFile? _mmf;
     private string? _currentFilePath;
 
     /// <summary>
@@ -31,7 +33,9 @@ public unsafe class TensorReader : ITensorStreamer
         if (_currentFilePath != filePath || _handle == null || _handle.IsInvalid)
         {
             _handle?.Dispose();
+            _mmf?.Dispose();
             _handle = UnbufferedFile.OpenUnbuffered(filePath);
+            _mmf = MemoryMappedFile.CreateFromFile(_handle, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, false);
             _currentFilePath = filePath;
         }
 
@@ -88,7 +92,9 @@ public unsafe class TensorReader : ITensorStreamer
         if (_currentFilePath != filePath || _handle == null || _handle.IsInvalid)
         {
             _handle?.Dispose();
+            _mmf?.Dispose();
             _handle = UnbufferedFile.OpenUnbuffered(filePath);
+            _mmf = MemoryMappedFile.CreateFromFile(_handle, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, false);
             _currentFilePath = filePath;
         }
 
@@ -122,6 +128,52 @@ public unsafe class TensorReader : ITensorStreamer
         return targetSpan;
     }
 
+    public unsafe void* MapTensorChunkDirect(string filePath, long byteOffset, long byteSize, out IDisposable handle)
+    {
+        if (byteOffset < 0 || byteSize <= 0)
+            throw new ArgumentOutOfRangeException("Offset and size must be positive.");
+
+        if (_currentFilePath != filePath || _mmf == null)
+        {
+            _handle?.Dispose();
+            _mmf?.Dispose();
+            _handle = UnbufferedFile.OpenUnbuffered(filePath);
+            _mmf = MemoryMappedFile.CreateFromFile(_handle, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, false);
+            _currentFilePath = filePath;
+        }
+
+        // Create a view accessor for the requested chunk
+        var accessor = _mmf.CreateViewAccessor(byteOffset, byteSize, MemoryMappedFileAccess.Read);
+        byte* ptr = null;
+        accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+        
+        // We must return a disposable object that releases the pointer and disposes the accessor
+        handle = new MmfViewHandle(accessor, ptr);
+        return ptr + accessor.PointerOffset;
+    }
+
+    private class MmfViewHandle : IDisposable
+    {
+        private MemoryMappedViewAccessor _accessor;
+        private unsafe byte* _ptr;
+
+        public unsafe MmfViewHandle(MemoryMappedViewAccessor accessor, byte* ptr)
+        {
+            _accessor = accessor;
+            _ptr = ptr;
+        }
+
+        public unsafe void Dispose()
+        {
+            if (_ptr != null)
+            {
+                _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+                _ptr = null;
+            }
+            _accessor?.Dispose();
+        }
+    }
+
     private void EnsureBufferCapacity(long requiredSize)
     {
         if (_buffer != null && _bufferCapacity >= requiredSize)
@@ -151,6 +203,8 @@ public unsafe class TensorReader : ITensorStreamer
             _bufferCapacity = 0;
         }
         
+        _mmf?.Dispose();
+        _mmf = null;
         _handle?.Dispose();
         _handle = null;
         _currentFilePath = null;

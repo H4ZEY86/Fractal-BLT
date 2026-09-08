@@ -29,13 +29,27 @@ public class Program
             options.SerializerOptions.TypeInfoResolverChain.Insert(0, FractalJsonContext.Default);
         });
 
+        // Add CORS to allow LocalUI GUI to stream SSE
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowAll", builder =>
+            {
+                builder.AllowAnyOrigin()
+                       .AllowAnyMethod()
+                       .AllowAnyHeader();
+            });
+        });
+
         // Initialize core engine components as Singletons to maintain the exact 10.06MB memory footprint
 
         var app = builder.Build();
+        
+        // Enable CORS
+        app.UseCors("AllowAll");
 
         app.MapPost("/v1/chat/completions", async (HttpContext context, ChatCompletionRequest request) =>
         {
-            string modelPath = Environment.GetEnvironmentVariable("FRACTAL_MODEL") ?? "C:\\Fractal-BLT\\tiny-llama.safetensors";
+            string modelPath = app.Configuration["ModelPath"] ?? Environment.GetEnvironmentVariable("FRACTAL_MODEL") ?? "C:\\Fractal-BLT\\tiny-llama.safetensors";
             string inputContent = request.Messages != null && request.Messages.Count > 0 ? request.Messages[0].Content : "default";
 
             // 1. Patchify
@@ -88,7 +102,6 @@ public class Program
                     rows = Math.Min(rows, 16);
                     long readLength = rows * cols * sizeof(float);
 
-                    void* hostWeights = System.Runtime.InteropServices.NativeMemory.Alloc((nuint)readLength);
                     float* hostInput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(cols * sizeof(float)));
                     float* hostOutput = (float*)System.Runtime.InteropServices.NativeMemory.Alloc((nuint)(rows * sizeof(float)));
                     
@@ -98,7 +111,9 @@ public class Program
                     try 
                     {
                         using var reader = new FractalStreamer.TensorReader();
-                        reader.ReadInto(modelPath, offset, (int)readLength, hostWeights);
+                        void* mappedWeightsPtr = reader.MapTensorChunkDirect(modelPath, offset, readLength, out IDisposable mmfHandle);
+                        using (mmfHandle)
+                        {
 
                         // --- CUDA PTX EXECUTION ---
                         FractalBridge.CudaNative.Init(0);
@@ -117,7 +132,7 @@ public class Program
                             FractalBridge.CudaNative.MemAlloc(out IntPtr dX, (nuint)(cols * sizeof(float)));
                             FractalBridge.CudaNative.MemAlloc(out IntPtr dY, (nuint)(rows * sizeof(float)));
 
-                            FractalBridge.CudaNative.MemcpyHtoDAsync(dW, (IntPtr)hostWeights, (nuint)readLength, hStream);
+                            FractalBridge.CudaNative.MemcpyHtoDAsync(dW, (IntPtr)mappedWeightsPtr, (nuint)readLength, hStream);
                             FractalBridge.CudaNative.MemcpyHtoDAsync(dX, (IntPtr)hostInput, (nuint)(cols * sizeof(float)), hStream);
 
                             void*[] args = new void*[] { &dW, &dX, &dY, &rows, &cols };
@@ -146,6 +161,7 @@ public class Program
                         {
                             FractalBridge.CudaNative.cuCtxDestroy(ctx);
                         }
+                        } // End of mmfHandle using block
                     }
                     catch (Exception ex)
                     {
@@ -153,7 +169,6 @@ public class Program
                     }
                     finally 
                     {
-                        System.Runtime.InteropServices.NativeMemory.Free(hostWeights);
                         System.Runtime.InteropServices.NativeMemory.Free(hostInput);
                         System.Runtime.InteropServices.NativeMemory.Free(hostOutput);
                     }
@@ -173,30 +188,7 @@ public class Program
 
                 var writer = context.Response.BodyWriter;
                 string[] outputTokens = outputMessage.Split(' ');
-                foreach (var token in outputTokens)
-                {
-                    if (string.IsNullOrEmpty(token)) continue;
-
-                    // Write prefix
-                    await writer.WriteAsync(s_dataPrefix);
-                    
-                    // Write token
-                    byte[] tokenBytes = Encoding.UTF8.GetBytes(" " + token);
-                    await writer.WriteAsync(tokenBytes);
-                    
-                    // Write suffix
-                    await writer.WriteAsync(s_dataSuffix);
-                    
-                    await writer.FlushAsync();
-                    
-                    // Yield execution back to Kestrel's I/O loop
-                    await Task.Yield();
-                    await Task.Delay(50); // Simulate token generation delay
-                }
-
-                // Final SSE terminator
-                await writer.WriteAsync(s_doneMessage);
-                await writer.FlushAsync();
+                await StreamTokensAsync(writer, outputTokens);
                 
                 return Results.Empty;
             }
@@ -222,5 +214,38 @@ public class Program
         });
 
         app.Run();
+    }
+
+    private static async Task StreamTokensAsync(PipeWriter writer, string[] tokens)
+    {
+        foreach (var token in tokens)
+        {
+            if (string.IsNullOrEmpty(token)) continue;
+
+            var chunk = new ChatCompletionChunk
+            {
+                Choices = new List<ChatCompletionChunkChoice>
+                {
+                    new ChatCompletionChunkChoice
+                    {
+                        Delta = new ChatCompletionDelta
+                        {
+                            Content = " " + token
+                        }
+                    }
+                }
+            };
+
+            await writer.WriteAsync(Encoding.UTF8.GetBytes("data: "));
+            JsonSerializer.Serialize(writer.AsStream(), chunk, FractalJsonContext.Default.ChatCompletionChunk);
+            await writer.WriteAsync(Encoding.UTF8.GetBytes("\n\n"));
+            await writer.FlushAsync();
+            
+            await Task.Yield();
+            await Task.Delay(50);
+        }
+
+        await writer.WriteAsync(Encoding.UTF8.GetBytes("data: [DONE]\n\n"));
+        await writer.FlushAsync();
     }
 }

@@ -22,4 +22,10 @@ public interface ITensorStreamer : IDisposable
     /// </summary>
     [Obsolete("Use ReadInto with a pre-allocated pointer for true zero-copy.")]
     unsafe Span<byte> MapTensorChunk(string filePath, long byteOffset, long byteSize);
+
+    /// <summary>
+    /// Maps a chunk of the safetensors file directly into memory and returns a pointer to it, 
+    /// along with a disposable handle. This enables true zero-copy DMA to CUDA.
+    /// </summary>
+    unsafe void* MapTensorChunkDirect(string filePath, long byteOffset, long byteSize, out IDisposable handle);
 }

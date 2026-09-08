@@ -23,10 +23,13 @@ public static class PtxKernels
     .param .u32 cols
 )
 {
-    .reg .u32 %r<10>;
-    .reg .u64 %rd<10>;
-    .reg .f32 %f<10>;
+    .reg .u32 %r<15>;
+    .reg .u64 %rd<15>;
+    .reg .f32 %f<5>;
     .reg .pred %p;
+
+    // Shared memory for X tile, padded to 257 to avoid bank conflicts
+    .shared .align 4 .b8 tileX[1028]; // 257 * 4 bytes = 1028 bytes
 
     ld.param.u64 %rd1, [W];
     ld.param.u64 %rd2, [X];
@@ -40,37 +43,87 @@ public static class PtxKernels
     mov.u32 %r5, %tid.x;
     mad.lo.s32 %r6, %r3, %r4, %r5; // %r6 = row
 
-    setp.ge.u32 %p, %r6, %r1;
-    @%p bra DONE;
-
     mov.f32 %f1, 0f00000000; // sum = 0.0
-    mov.u32 %r7, 0; // col = 0
+    mov.u32 %r7, 0; // tile_offset = 0
 
-LOOP:
+TILE_LOOP:
     setp.ge.u32 %p, %r7, %r2;
     @%p bra WRITE_OUT;
 
-    // Load X[col]
-    mul.wide.u32 %rd4, %r7, 4;
+    // Threads cooperatively load tile of X into shared memory
+    // Global index for X = tile_offset + tid.x
+    add.s32 %r8, %r7, %r5; 
+    setp.ge.u32 %p, %r8, %r2;
+    @%p bra SKIP_LOAD;
+
+    // Load X[tile_offset + tid.x]
+    mul.wide.u32 %rd4, %r8, 4;
     add.s64 %rd5, %rd2, %rd4;
     ld.global.f32 %f2, [%rd5];
 
-    // Load W[row * cols + col]
-    mad.lo.s32 %r8, %r6, %r2, %r7;
-    mul.wide.u32 %rd6, %r8, 4;
-    add.s64 %rd7, %rd1, %rd6;
-    ld.global.f32 %f3, [%rd7];
+    // Store in shared memory: tileX[tid.x]
+    mov.u64 %rd6, tileX;
+    mul.wide.u32 %rd7, %r5, 4;
+    add.s64 %rd8, %rd6, %rd7;
+    st.shared.f32 [%rd8], %f2;
+    bra SYNC;
 
-    fma.rn.f32 %f1, %f3, %f2, %f1;
+SKIP_LOAD:
+    // If out of bounds, write 0.0 to shared memory
+    mov.u64 %rd6, tileX;
+    mul.wide.u32 %rd7, %r5, 4;
+    add.s64 %rd8, %rd6, %rd7;
+    mov.f32 %f2, 0f00000000;
+    st.shared.f32 [%rd8], %f2;
 
-    add.s32 %r7, %r7, 1;
-    bra LOOP;
+SYNC:
+    bar.sync 0;
+
+    // Now, each valid row thread computes the dot product for this tile
+    setp.ge.u32 %p, %r6, %r1;
+    @%p bra NEXT_TILE; // Skip computation if row is out of bounds
+
+    mov.u32 %r9, 0; // i = 0
+INNER_LOOP:
+    // Ensure we don't go out of bounds of the actual cols
+    add.s32 %r10, %r7, %r9;
+    setp.ge.u32 %p, %r10, %r2;
+    @%p bra NEXT_TILE;
+
+    // Limit to blockDim.x
+    setp.ge.u32 %p, %r9, %r4;
+    @%p bra NEXT_TILE;
+
+    // Load W[row * cols + (tile_offset + i)]
+    mad.lo.s32 %r11, %r6, %r2, %r10;
+    mul.wide.u32 %rd9, %r11, 4;
+    add.s64 %rd10, %rd1, %rd9;
+    ld.global.f32 %f3, [%rd10];
+
+    // Load X from shared memory: tileX[i]
+    mov.u64 %rd11, tileX;
+    mul.wide.u32 %rd12, %r9, 4;
+    add.s64 %rd13, %rd11, %rd12;
+    ld.shared.f32 %f4, [%rd13];
+
+    fma.rn.f32 %f1, %f3, %f4, %f1;
+
+    add.s32 %r9, %r9, 1;
+    bra INNER_LOOP;
+
+NEXT_TILE:
+    bar.sync 0;
+    add.s32 %r7, %r7, %r4; // tile_offset += blockDim.x
+    bra TILE_LOOP;
 
 WRITE_OUT:
+    setp.ge.u32 %p, %r6, %r1;
+    @%p bra DONE;
+
     // Store Y[row]
-    mul.wide.u32 %rd8, %r6, 4;
-    add.s64 %rd9, %rd3, %rd8;
-    st.global.f32 [%rd9], %f1;
+    mul.wide.u32 %rd14, %r6, 4;
+    add.s64 %rd15, %rd3, %rd14;
+    st.global.f32 [%rd15], %f1;
 
 DONE:
     ret;
