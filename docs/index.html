@@ -69,10 +69,12 @@
             <div class="panel" style="padding: 15px;">
                 <h2 style="margin-bottom: 10px; padding-bottom: 5px;">ZERO-ALLOCATION INFERENCE SHOWCASE</h2>
                 <div style="text-align: center;">
-                    <video width="100%" height="280" style="border: 1px solid var(--neon-cyan); border-radius: 4px; display: block; object-fit: cover; object-position: top;" controls autoplay loop muted>
-                        <source src="assets/inference-demo.mp4" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
+                    <div style="width: 100%; height: 280px; border: 1px solid var(--neon-cyan); border-radius: 4px; overflow: hidden; position: relative; background: #000;">
+                        <video style="width: 100%; height: 100%; display: block; object-fit: cover; object-position: top;" controls autoplay loop muted>
+                            <source src="assets/inference-demo.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
                     <div style="color: var(--text-main); font-size: 0.8rem; margin-top: 10px;">
                         <em>Live SSE Telemetry captured via Windows Terminal and <code>Run-Demo.ps1</code>.</em>
                     </div>
