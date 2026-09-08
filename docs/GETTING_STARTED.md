@@ -78,8 +78,8 @@ for (uint r = 0; r < rows; r++)
     float sum = 0f;
     for (uint c = 0; c < cols; c++)
     {
-        // hostWeights is row-major (rows x cols)
-        float w = ((float*)hostWeights)[r * cols + c];
+        // mappedWeightsPtr is row-major (rows x cols)
+        float w = ((float*)mappedWeightsPtr)[r * cols + c];
         float x = hostInput[c];
         sum += w * x;
     }

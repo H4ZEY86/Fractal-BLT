@@ -33,21 +33,17 @@ Traditional AI runtimes are crippled by heavy software stacks (Python, PyTorch, 
 
 ---
 
-## 🎥 Zero-Allocation Inference Showcase
+## 🚀 Performance Showcase: Zero-Allocation .NET 10 & CUDA Inference
 
-Watch the raw unmanaged performance of Fractal-BLT's NVMe-to-VRAM DMA streaming pipeline in action:
+Experience high-throughput, local sovereign AI inference powered by custom C# NativeAOT, memory-mapped NVMe-to-VRAM DMA transfers, and JIT-compiled PTX kernels.
 
-<div align="center">
-  <video width="800" controls autoplay loop muted>
-    <source src="docs/assets/inference-demo.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
-  <br>
-  <em>Live SSE Telemetry captured via Windows Terminal and `Run-Demo.ps1` automation harness.</em>
-</div>
+![Fractal-BLT Streaming Engine Demo](docs/assets/inference-demo.mp4)
 
-**Try it yourself:** 
-Run the automated `Run-Demo.ps1` PowerShell script on your local machine to spawn the native Kestrel backend and stream real-time tokens directly to your terminal.
+### Quick Run
+Want to test the zero-allocation telemetry pipeline locally on your machine? Run the automated PowerShell harness:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-Demo.ps1
+```
 
 ---
 

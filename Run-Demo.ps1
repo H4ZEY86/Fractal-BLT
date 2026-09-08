@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+    [string]$Model = "qwen3.8-27b",
+    [string]$Prompt = "Initialize sequence: test tensor read stream."
+)
 $ErrorActionPreference = 'Stop'
 
 Write-Host "========================================================" -ForegroundColor Cyan
@@ -45,7 +50,7 @@ if (-not $serverReady) {
 
 Write-Host "[SYSTEM] FractalServe Online. Memory-mapped NVMe DMA initialized." -ForegroundColor Green
 Write-Host ""
-Write-Host "USER: Initialize sequence: test tensor read stream." -ForegroundColor DarkGray
+Write-Host "USER: $Prompt" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "FRACTAL-BLT: " -NoNewline -ForegroundColor Cyan
 
@@ -58,7 +63,7 @@ try {
     
     # We must use HttpCompletionOption.ResponseHeadersRead to stream chunks live
     $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, "http://localhost:5000/v1/chat/completions")
-    $jsonPayload = '{"model":"qwen3.8-27b","messages":[{"role":"user","content":"Initialize sequence: test tensor read stream."}],"stream":true}'
+    $jsonPayload = "{`"model`":`"$Model`",`"messages`":[{`"role`":`"user`",`"content`":`"$Prompt`"}],`"stream`":true}"
     $request.Content = [System.Net.Http.StringContent]::new($jsonPayload, [System.Text.Encoding]::UTF8, "application/json")
     
     $responseTask = $client.SendAsync($request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)

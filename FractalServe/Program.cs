@@ -153,7 +153,7 @@ public class Program
                             FractalBridge.CudaNative.MemFree(dW);
                             FractalBridge.CudaNative.MemFree(dX);
                             FractalBridge.CudaNative.MemFree(dY);
-                            FractalBridge.CudaNative.cuStreamDestroy(hStream);
+                            FractalBridge.CudaNative.StreamDestroy(hStream);
 
                             outputMessage += " GPU Logits:";
                             for (int i = 0; i < Math.Min(rows, 10); i++) 
@@ -163,7 +163,7 @@ public class Program
                         }
                         finally
                         {
-                            FractalBridge.CudaNative.cuCtxDestroy(ctx);
+                            FractalBridge.CudaNative.CtxDestroy(ctx);
                         }
                         } // End of mmfHandle using block
                     }

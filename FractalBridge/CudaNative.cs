@@ -37,6 +37,8 @@ public static partial class CudaNative
     public static void DeviceGet(out int device, int ordinal) => Check(cuDeviceGet(out device, ordinal));
     public static void CtxCreate(out IntPtr pctx, uint flags, int dev) => Check(cuCtxCreate(out pctx, flags, dev));
     public static void StreamCreate(out IntPtr phStream, uint flags) => Check(cuStreamCreate(out phStream, flags));
+    public static void StreamDestroy(IntPtr hStream) => Check(cuStreamDestroy(hStream));
+    public static void CtxDestroy(IntPtr ctx) => Check(cuCtxDestroy(ctx));
     public static void MemHostRegister(IntPtr p, nuint bytesize, uint Flags) => Check(cuMemHostRegister(p, bytesize, Flags));
     public static void MemHostUnregister(IntPtr p) => Check(cuMemHostUnregister(p));
     public static void MemAlloc(out IntPtr dptr, nuint bytesize) => Check(cuMemAlloc(out dptr, bytesize));
