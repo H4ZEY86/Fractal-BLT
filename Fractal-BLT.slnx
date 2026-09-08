@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="FractalBltEncoder/FractalBltEncoder.csproj" />
+  <Project Path="FractalBridge/FractalBridge.csproj" />
+  <Project Path="FractalGnnRouter/FractalGnnRouter.csproj" />
+  <Project Path="FractalServe/FractalServe.csproj" />
+  <Project Path="FractalStreamer.Tests/FractalStreamer.Tests.csproj" />
+  <Project Path="FractalStreamer/FractalStreamer.csproj" />
+</Solution>
