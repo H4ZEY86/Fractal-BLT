@@ -46,6 +46,10 @@ public class Program
         
         // Enable CORS
         app.UseCors("AllowAll");
+        
+        // Serve LocalUI from wwwroot
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
 
         app.MapPost("/v1/chat/completions", async (HttpContext context, ChatCompletionRequest request) =>
         {

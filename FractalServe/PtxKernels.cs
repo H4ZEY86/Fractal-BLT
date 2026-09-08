@@ -23,9 +23,9 @@ public static class PtxKernels
     .param .u32 cols
 )
 {
-    .reg .u32 %r<15>;
-    .reg .u64 %rd<15>;
-    .reg .f32 %f<5>;
+    .reg .u32 %r<20>;
+    .reg .u64 %rd<20>;
+    .reg .f32 %f<10>;
     .reg .pred %p;
 
     // Shared memory for X tile, padded to 257 to avoid bank conflicts

@@ -33,6 +33,24 @@ Traditional AI runtimes are crippled by heavy software stacks (Python, PyTorch, 
 
 ---
 
+## 🎥 Zero-Allocation Inference Showcase
+
+Watch the raw unmanaged performance of Fractal-BLT's NVMe-to-VRAM DMA streaming pipeline in action:
+
+<div align="center">
+  <video width="800" controls autoplay loop muted>
+    <source src="docs/assets/inference-demo.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <br>
+  <em>Live SSE Telemetry captured via Windows Terminal and `Run-Demo.ps1` automation harness.</em>
+</div>
+
+**Try it yourself:** 
+Run the automated `Run-Demo.ps1` PowerShell script on your local machine to spawn the native Kestrel backend and stream real-time tokens directly to your terminal.
+
+---
+
 ## 🏗️ System Architecture Flow
 ```mermaid
 graph TD
