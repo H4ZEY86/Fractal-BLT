@@ -139,6 +139,7 @@ public class Program
                             FractalBridge.CudaNative.MemcpyHtoDAsync(dW, (IntPtr)mappedWeightsPtr, (nuint)readLength, hStream);
                             FractalBridge.CudaNative.MemcpyHtoDAsync(dX, (IntPtr)hostInput, (nuint)(cols * sizeof(float)), hStream);
 
+#pragma warning disable CS9123
                             void*[] args = new void*[] { &dW, &dX, &dY, &rows, &cols };
                             fixed (void** pArgs = args)
                             {
@@ -146,6 +147,7 @@ public class Program
                                 uint gridDimX = (rows + blockDimX - 1) / blockDimX;
                                 FractalBridge.CudaNative.LaunchKernel(hfunc, gridDimX, 1, 1, blockDimX, 1, 1, 0, hStream, (IntPtr)pArgs, IntPtr.Zero);
                             }
+#pragma warning restore CS9123
 
                             FractalBridge.CudaNative.MemcpyDtoHAsync((IntPtr)hostOutput, dY, (nuint)(rows * sizeof(float)), hStream);
                             FractalBridge.CudaNative.StreamSynchronize(hStream);

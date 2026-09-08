@@ -112,7 +112,7 @@ public static class SafetensorsHeaderParser
             {
                 if (reader.TokenType == JsonTokenType.PropertyName)
                 {
-                    string propName = reader.GetString();
+                    string propName = reader.GetString() ?? string.Empty;
                     reader.Read(); // move to value
                     
                     if (propName != "__metadata__" && reader.TokenType == JsonTokenType.StartObject)
