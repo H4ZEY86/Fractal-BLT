@@ -1,7 +1,7 @@
 <div align="center">
 
 # FRACTAL-BLT
-[https://h4zey86.github.io/Fractal-BLT/](https://ctrl-alt-haze.github.io/Fractal-BLT/)
+(https://ctrl-alt-haze.github.io/Fractal-BLT/)
 ### *Disk-Native, Zero-Allocation Mixture-of-Experts (MoE) Inference Runtime in .NET 10 NativeAOT*
 
 [![.NET 10 NativeAOT](https://img.shields.io/badge/.NET_10-NativeAOT-512BD4?style=for-the-badge&logo=.net&logoColor=white)](https://dotnet.microsoft.com/)
